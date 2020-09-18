@@ -36,6 +36,7 @@ from qiskit.aqua.components.variational_forms import VariationalForm
 from qiskit.aqua.utils.validation import validate_min
 from qiskit.aqua.utils.backend_utils import is_aer_provider
 from ..vq_algorithm import VQAlgorithm, VQResult
+from .expectation_computation import ExpectationComputationFactory, ExpectationComputation
 from .minimum_eigen_solver import MinimumEigensolver, MinimumEigensolverResult
 
 logger = logging.getLogger(__name__)
@@ -100,7 +101,8 @@ class VQE(VQAlgorithm, MinimumEigensolver):
                                                              LegacyBaseOperator]]]] = None,
                  callback: Optional[Callable[[int, np.ndarray, float, float], None]] = None,
                  quantum_instance: Optional[
-                     Union[QuantumInstance, BaseBackend, Backend]] = None) -> None:
+                     Union[QuantumInstance, BaseBackend, Backend]] = None,
+                 remote: bool = True) -> None:
         """
 
         Args:
@@ -140,6 +142,7 @@ class VQE(VQAlgorithm, MinimumEigensolver):
                 These are: the evaluation count, the optimizer parameters for the
                 variational form, the evaluated mean and the evaluated standard deviation.`
             quantum_instance: Quantum Instance or Backend
+            remote: run computation remotely
         """
         validate_min('max_evals_grouped', max_evals_grouped, 1)
         if var_form is None:
@@ -159,6 +162,8 @@ class VQE(VQAlgorithm, MinimumEigensolver):
         self._include_custom = include_custom
         self._expect_op = None
         self._operator = None
+        self._remote = remote
+        self._expectation_computation: Optional[ExpectationComputation] = None
 
         super().__init__(var_form=var_form,
                          optimizer=optimizer,
@@ -412,59 +417,65 @@ class VQE(VQAlgorithm, MinimumEigensolver):
         if self.operator is None:
             raise AquaError("The operator was never provided.")
 
-        self._check_operator_varform()
+        try:
+            self._check_operator_varform()
 
-        self._quantum_instance.circuit_summary = True
+            self._quantum_instance.circuit_summary = True
 
-        self._eval_count = 0
+            self._eval_count = 0
 
-        # Convert the gradient operator into a callable function that is compatible with the
-        # optimization routine.
-        if self._gradient:
-            if isinstance(self._gradient, GradientBase):
-                self._gradient = self._gradient.gradient_wrapper(
-                    ~StateFn(self._operator) @ StateFn(self._var_form),
-                    bind_params=self._var_form_params,
-                    backend=self._quantum_instance)
-        vqresult = self.find_minimum(initial_point=self.initial_point,
-                                     var_form=self.var_form,
-                                     cost_fn=self._energy_evaluation,
-                                     gradient_fn=self._gradient,
-                                     optimizer=self.optimizer)
+            # Convert the gradient operator into a callable function that is compatible with the
+            # optimization routine.
+            if self._gradient:
+                if isinstance(self._gradient, GradientBase):
+                    self._gradient = self._gradient.gradient_wrapper(
+                        ~StateFn(self._operator) @ StateFn(self._var_form),
+                        bind_params=self._var_form_params,
+                        backend=self._quantum_instance)
+            vqresult = self.find_minimum(initial_point=self.initial_point,
+                                         var_form=self.var_form,
+                                         cost_fn=self._energy_evaluation,
+                                         gradient_fn=self._gradient,
+                                         optimizer=self.optimizer)
 
-        # TODO remove all former dictionary logic
-        self._ret = {}
-        self._ret['num_optimizer_evals'] = vqresult.optimizer_evals
-        self._ret['min_val'] = vqresult.optimal_value
-        self._ret['opt_params'] = vqresult.optimal_point
-        self._ret['eval_time'] = vqresult.optimizer_time
-        self._ret['opt_params_dict'] = vqresult.optimal_parameters
+            # TODO remove all former dictionary logic
+            self._ret = {}
+            self._ret['num_optimizer_evals'] = vqresult.optimizer_evals
+            self._ret['min_val'] = vqresult.optimal_value
+            self._ret['opt_params'] = vqresult.optimal_point
+            self._ret['eval_time'] = vqresult.optimizer_time
+            self._ret['opt_params_dict'] = vqresult.optimal_parameters
 
-        if self._ret['num_optimizer_evals'] is not None and \
-                self._eval_count >= self._ret['num_optimizer_evals']:
-            self._eval_count = self._ret['num_optimizer_evals']
-        self._eval_time = self._ret['eval_time']
-        logger.info('Optimization complete in %s seconds.\nFound opt_params %s in %s evals',
-                    self._eval_time, self._ret['opt_params'], self._eval_count)
-        self._ret['eval_count'] = self._eval_count
+            if self._ret['num_optimizer_evals'] is not None and \
+                    self._eval_count >= self._ret['num_optimizer_evals']:
+                self._eval_count = self._ret['num_optimizer_evals']
+            self._eval_time = self._ret['eval_time']
+            logger.info('Optimization complete in %s seconds.\nFound opt_params %s in %s evals',
+                        self._eval_time, self._ret['opt_params'], self._eval_count)
+            self._ret['eval_count'] = self._eval_count
 
-        result = VQEResult()
-        result.combine(vqresult)
-        result.eigenvalue = vqresult.optimal_value + 0j
-        result.eigenstate = self.get_optimal_vector()
+            result = VQEResult()
+            result.combine(vqresult)
+            result.eigenvalue = vqresult.optimal_value + 0j
+            result.eigenstate = self.get_optimal_vector()
 
-        self._ret['energy'] = self.get_optimal_cost()
-        self._ret['eigvals'] = np.asarray([self._ret['energy']])
-        self._ret['eigvecs'] = np.asarray([result.eigenstate])
+            self._ret['energy'] = self.get_optimal_cost()
+            self._ret['eigvals'] = np.asarray([self._ret['energy']])
+            self._ret['eigvecs'] = np.asarray([result.eigenstate])
 
-        if len(self.aux_operators) > 0:
-            self._eval_aux_ops()
-            # TODO remove when ._ret is deprecated
-            result.aux_operator_eigenvalues = self._ret['aux_ops'][0]
+            if len(self.aux_operators) > 0:
+                self._eval_aux_ops()
+                # TODO remove when ._ret is deprecated
+                result.aux_operator_eigenvalues = self._ret['aux_ops'][0]
 
-        result.cost_function_evals = self._eval_count
+            result.cost_function_evals = self._eval_count
 
-        return result
+            return result
+        finally:
+            if self._expectation_computation is not None:
+                expectation_computation = self._expectation_computation
+                self._expectation_computation = None
+                expectation_computation.terminate()
 
     def _eval_aux_ops(self, threshold=1e-12):
         # Create new CircuitSampler to avoid breaking existing one's caches.
@@ -509,21 +520,16 @@ class VQE(VQAlgorithm, MinimumEigensolver):
         Raises:
             RuntimeError: If the variational form has no parameters.
         """
-        if not self._expect_op:
-            self._expect_op = self.construct_expectation(self._var_form_params)
-
-        num_parameters = self.var_form.num_parameters
-        if self._var_form.num_parameters == 0:
-            raise RuntimeError('The var_form cannot have 0 parameters.')
-
-        parameter_sets = np.reshape(parameters, (-1, num_parameters))
-        # Create dict associating each parameter with the lists of parameterization values for it
-        param_bindings = dict(zip(self._var_form_params,
-                                  parameter_sets.transpose().tolist()))  # type: Dict
-
         start_time = time()
-        sampled_expect_op = self._circuit_sampler.convert(self._expect_op, params=param_bindings)
-        means = np.real(sampled_expect_op.eval())
+
+        if self._expectation_computation is None:
+            self._expectation_computation = \
+                 ExpectationComputationFactory.create_instance(
+                     self._remote, self.quantum_instance, self.operator,
+                     self.var_form, self._expectation)
+
+        parameter_sets, sampled_expect_op, means = \
+            self._expectation_computation.compute_expectation_value(parameters)
 
         if self._callback is not None:
             variance = np.real(self._expectation.compute_variance(sampled_expect_op))

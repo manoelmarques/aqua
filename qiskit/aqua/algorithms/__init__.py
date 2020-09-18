@@ -211,7 +211,8 @@ from .linear_solvers import (LinearsolverResult, HHL,
                              NumPyLSsolverResult, ExactLSsolver)
 from .minimum_eigen_solvers import (VQE, VQEResult, QAOA, IQPE, IQPEResult, QPE, QPEResult,
                                     ClassicalCPLEX, CPLEX_Ising, NumPyMinimumEigensolver,
-                                    MinimumEigensolver, MinimumEigensolverResult)
+                                    MinimumEigensolver, MinimumEigensolverResult,
+                                    ExpectationComputationFactory, ExpectationComputation)
 from .education import EOH, Simon, DeutschJozsa, BernsteinVazirani
 
 __all__ = [
@@ -219,6 +220,8 @@ __all__ = [
     'QuantumAlgorithm',
     'VQE',
     'VQEResult',
+    'ExpectationComputationFactory',
+    'ExpectationComputation',
     'QAOA',
     'VQC',
     'QGAN',

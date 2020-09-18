@@ -120,7 +120,7 @@ class TestVQE(QiskitAquaTestCase):
         """Test specifying a variational form with no parameters raises an error."""
         circuit = QuantumCircuit(self.h2_op.num_qubits)
         vqe = VQE(self.h2_op, circuit)
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(AquaError):
             vqe.run(BasicAer.get_backend('statevector_simulator'))
 
     @data(

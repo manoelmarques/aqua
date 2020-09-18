@@ -19,6 +19,7 @@ from .qpe import QPE, QPEResult
 from .cplex import ClassicalCPLEX, CPLEX_Ising
 from .numpy_minimum_eigen_solver import NumPyMinimumEigensolver
 from .minimum_eigen_solver import MinimumEigensolver, MinimumEigensolverResult
+from .expectation_computation import ExpectationComputationFactory, ExpectationComputation
 
 __all__ = [
     'VQE',
@@ -32,5 +33,7 @@ __all__ = [
     'CPLEX_Ising',
     'NumPyMinimumEigensolver',
     'MinimumEigensolver',
-    'MinimumEigensolverResult'
+    'MinimumEigensolverResult',
+    'ExpectationComputationFactory',
+    'ExpectationComputation'
 ]
