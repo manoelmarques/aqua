@@ -17,6 +17,7 @@ on:
     branches:
       - master
       - 'stable/**'
+      - 'stable**'
   pull_request:
     branches:
       - master
@@ -44,6 +45,10 @@ jobs:
             ${{ runner.os }}-pip-checks-
             ${{ runner.os }}-pip-
             ${{ runner.os }}-
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
       - uses: ./.github/actions/install-libraries
       - uses: ./.github/actions/install-master-dependencies
         if: ${{ !startsWith(github.ref, 'refs/heads/stable') }}
@@ -56,10 +61,6 @@ jobs:
           pip install cplex
           pip install "cvxpy>1.0.0"
           pip install https://github.com/rpmuller/pyquante2/archive/master.zip
-        shell: bash
-      - name: Terminate if failure above
-        run: exit 1
-        if: ${{ !success() }}
         shell: bash
       - run:  pip check
         if: ${{ !cancelled() }}
@@ -126,10 +127,6 @@ jobs:
         run: |
           pip install "cvxpy>1.0.0"
           pip install https://github.com/rpmuller/pyquante2/archive/master.zip
-      - name: Terminate if failure above
-        run: exit 1
-        if: ${{ !success() }}
-        shell: bash
       - run: make lint
         if: ${{ !cancelled() }}
         shell: bash
