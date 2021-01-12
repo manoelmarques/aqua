@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,8 +12,10 @@
 
 """The minimum eigensolver factory for ground state calculation algorithms."""
 
+from typing import Union
 from abc import ABC, abstractmethod
-from qiskit.aqua.algorithms import MinimumEigensolver
+from qiskit.aqua.algorithms import MinimumEigensolver as OldMinimumEigensolver
+from qiskit.algorithms import MinimumEigensolver
 from ....transformations.transformation import Transformation
 
 
@@ -21,7 +23,9 @@ class MinimumEigensolverFactory(ABC):
     """A factory to construct a minimum eigensolver based on a qubit operator transformation."""
 
     @abstractmethod
-    def get_solver(self, transformation: Transformation) -> MinimumEigensolver:
+    def get_solver(self,
+                   transformation: Transformation) \
+            -> Union[OldMinimumEigensolver, MinimumEigensolver]:
         """Returns a minimum eigensolver, based on the qubit operator transformation.
 
         Args:

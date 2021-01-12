@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -20,9 +20,10 @@ import numpy as np
 
 from qiskit import BasicAer
 from qiskit.circuit.library import TwoLocal
-from qiskit.aqua import QuantumInstance
-from qiskit.aqua.algorithms import NumPyMinimumEigensolver, VQE, IQPE
-from qiskit.aqua.components.optimizers import SLSQP
+from qiskit.utils import QuantumInstance
+from qiskit.algorithms import NumPyMinimumEigensolver, VQE
+from qiskit.aqua.algorithms import IQPE
+from qiskit.algorithms.optimizers import SLSQP
 from qiskit.chemistry import QiskitChemistryError
 from qiskit.chemistry.applications import MolecularGroundStateEnergy
 from qiskit.chemistry.circuit.library import HartreeFock
@@ -47,8 +48,8 @@ class TestAppMGSE(QiskitChemistryTestCase):
 
         self.npme = NumPyMinimumEigensolver()
 
-        self.vqe = VQE(var_form=TwoLocal(rotation_blocks='ry', entanglement_blocks='cz'))
-        self.vqe.set_backend(BasicAer.get_backend('statevector_simulator'))
+        self.vqe = VQE(var_form=TwoLocal(rotation_blocks='ry', entanglement_blocks='cz'),
+                       quantum_instance=BasicAer.get_backend('statevector_simulator'))
 
         self.reference_energy = -1.137306
 

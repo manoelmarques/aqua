@@ -199,7 +199,7 @@ to compute the ground-state (minimum) energy of a molecule.
 ```python
 from qiskit.chemistry import FermionicOperator
 from qiskit.chemistry.drivers import PySCFDriver, UnitsType
-from qiskit.aqua.operators import Z2Symmetries
+from qiskit.opflow import Z2Symmetries
 
 # Use PySCF, a classical computational chemistry software
 # package, to compute the one-body and two-body integrals in
@@ -219,7 +219,7 @@ qubit_op = Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
 num_qubits = qubit_op.num_qubits
 
 # setup a classical optimizer for VQE
-from qiskit.aqua.components.optimizers import L_BFGS_B
+from qiskit.algorithms.optimizers import L_BFGS_B
 optimizer = L_BFGS_B()
 
 # setup the initial state for the variational form
@@ -233,15 +233,15 @@ var_form = TwoLocal(num_qubits, ['ry', 'rz'], 'cz')
 # add the initial state
 var_form.compose(init_state, front=True)
 
-# setup and run VQE
-from qiskit.aqua.algorithms import VQE
-algorithm = VQE(qubit_op, var_form, optimizer)
-
 # set the backend for the quantum computation
 from qiskit import Aer
 backend = Aer.get_backend('statevector_simulator')
 
-result = algorithm.run(backend)
+# setup and run VQE
+from qiskit.algorithms import VQE
+algorithm = VQE(var_form, optimizer, quantum_instance=backend)
+
+result = algorithm.compute_minimum_eigenvalue(qubit_op)
 print(result.eigenvalue.real)
 ```
 The program above uses a quantum computer to calculate the ground state energy of molecular Hydrogen,
@@ -356,9 +356,9 @@ be classified.
 
 ```python
 from qiskit import BasicAer
-from qiskit.aqua import QuantumInstance, aqua_globals
+from qiskit.utils import aqua_globals, QuantumInstance
 from qiskit.aqua.algorithms import VQC
-from qiskit.aqua.components.optimizers import COBYLA
+from qiskit.algorithms.optimizers import COBYLA
 from qiskit.aqua.components.feature_maps import RawFeatureVector
 from qiskit.ml.datasets import wine
 from qiskit.circuit.library import TwoLocal
@@ -442,7 +442,7 @@ from qiskit.optimization.algorithms import MinimumEigenOptimizer
 
 from qiskit import BasicAer
 from qiskit.aqua.algorithms import QAOA
-from qiskit.aqua.components.optimizers import SPSA
+from qiskit.algorithms.optimizers import SPSA
 
 # Generate a graph of 4 nodes
 n = 4

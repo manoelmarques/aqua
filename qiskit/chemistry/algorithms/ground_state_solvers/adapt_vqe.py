@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -17,10 +17,13 @@ import logging
 from typing import Optional, List, Tuple, Union
 import numpy as np
 
-from qiskit.aqua.utils.validation import validate_min
-from qiskit.aqua.operators import WeightedPauliOperator
-from qiskit.aqua.algorithms import VQE
-from qiskit.aqua import AquaError
+from qiskit.utils.validation import validate_min
+from qiskit.chemistry import QiskitChemistryError
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator, OperatorBase
+from qiskit.aqua.operators import OperatorBase as OldOperatorBase
+from qiskit.aqua.algorithms import VQE as OldVQE
+from qiskit.algorithms import VQE
 from ...results.electronic_structure_result import ElectronicStructureResult
 from ...results.vibronic_structure_result import VibronicStructureResult
 from ...transformations.fermionic_transformation import FermionicTransformation
@@ -67,10 +70,18 @@ class AdaptVQE(GroundStateEigensolver):
         return True
 
     def _compute_gradients(self,
-                           excitation_pool: List[WeightedPauliOperator],
+                           excitation_pool:
+                           List[Union[OldWeightedPauliOperator,
+                                      WeightedPauliOperator]],
                            theta: List[float],
-                           vqe: VQE,
-                           ) -> List[Tuple[float, WeightedPauliOperator]]:
+                           vqe: Union[OldVQE,
+                                      VQE],
+                           operator: Union[OldOperatorBase,
+                                           OperatorBase]
+                           ) \
+            -> List[Tuple[float,
+                          Union[OldWeightedPauliOperator,
+                                WeightedPauliOperator]]]:
         """
         Computes the gradients for all available excitation operators.
 
@@ -78,6 +89,7 @@ class AdaptVQE(GroundStateEigensolver):
             excitation_pool: pool of excitation operators
             theta: list of (up to now) optimal parameters
             vqe: the variational quantum eigensolver instance used for solving
+            operator: VQE operator
 
         Returns:
             List of pairs consisting of gradient and excitation operator.
@@ -86,7 +98,10 @@ class AdaptVQE(GroundStateEigensolver):
         # compute gradients for all excitation in operator pool
         for exc in excitation_pool:
             # push next excitation to variational form
-            vqe.var_form.push_hopping_operator(exc)
+            if isinstance(vqe, VQE):
+                vqe.var_form.push_hopping_operator(exc)
+            else:
+                vqe.var_form.push_hopping_operator(exc)
             # NOTE: because we overwrite the var_form inside of the VQE, we need to update the VQE's
             # internal _var_form_params, too. We can do this by triggering the var_form setter. Once
             # the VQE does not store this pure var_form property any longer this can be removed.
@@ -96,6 +111,8 @@ class AdaptVQE(GroundStateEigensolver):
             vqe._expect_op = None
             # evaluate energies
             parameter_sets = theta + [-self._delta] + theta + [self._delta]
+            if isinstance(vqe, VQE) and not vqe._expect_op:
+                vqe._expect_op = vqe.construct_expectation(vqe._var_form_params, operator)
             energy_results = vqe._energy_evaluation(np.asarray(parameter_sets))
             # compute gradient
             gradient = (energy_results[0] - energy_results[1]) / (2 * self._delta)
@@ -145,7 +162,8 @@ class AdaptVQE(GroundStateEigensolver):
                 ground state.
 
         Raises:
-            AquaError: if a solver other than VQE or a variational form other than UCCSD is
+            QiskitChemistryError: if a solver other than VQE or a variational form other
+                than UCCSD is
                 provided or if the algorithm finishes due to an unforeseen reason.
 
         Returns:
@@ -156,11 +174,15 @@ class AdaptVQE(GroundStateEigensolver):
         operator, aux_operators = self._transformation.transform(driver, aux_operators)
 
         vqe = self._solver.get_solver(self._transformation)
-        vqe.operator = operator
-        if not isinstance(vqe, VQE):
-            raise AquaError("The AdaptVQE algorithm requires the use of the VQE solver")
+        if hasattr(vqe, 'operator'):
+            vqe.operator = operator
+
+        if not isinstance(vqe, (OldVQE, VQE)):
+            raise QiskitChemistryError(
+                "The AdaptVQE algorithm requires the use of the VQE solver")
         if not isinstance(vqe.var_form, UCCSD):
-            raise AquaError("The AdaptVQE algorithm requires the use of the UCCSD variational form")
+            raise QiskitChemistryError(
+                "The AdaptVQE algorithm requires the use of the UCCSD variational form")
 
         vqe.var_form.manage_hopping_operators()
         excitation_pool = vqe.var_form.excitation_pool
@@ -170,14 +192,16 @@ class AdaptVQE(GroundStateEigensolver):
         max_iterations_exceeded = False
         prev_op_indices: List[int] = []
         theta: List[float] = []
-        max_grad: Tuple[float, Optional[WeightedPauliOperator]] = (0., None)
+        max_grad: Tuple[float,
+                        Optional[Union[OldWeightedPauliOperator,
+                                       WeightedPauliOperator]]] = (0., None)
         iteration = 0
         while self._max_iterations is None or iteration < self._max_iterations:
             iteration += 1
             logger.info('--- Iteration #%s ---', str(iteration))
             # compute gradients
 
-            cur_grads = self._compute_gradients(excitation_pool, theta, vqe)
+            cur_grads = self._compute_gradients(excitation_pool, theta, vqe, operator)
             # pick maximum gradient
             max_grad_index, max_grad = max(enumerate(cur_grads),
                                            key=lambda item: np.abs(item[1][0]))
@@ -231,11 +255,12 @@ class AdaptVQE(GroundStateEigensolver):
         elif max_iterations_exceeded:
             finishing_criterion = 'Maximum number of iterations reached'
         else:
-            raise AquaError('The algorithm finished due to an unforeseen reason!')
+            raise QiskitChemistryError('The algorithm finished due to an unforeseen reason!')
 
         electronic_result = self.transformation.interpret(raw_vqe_result)
 
-        result = AdaptVQEResult(electronic_result.data)
+        result = AdaptVQEResult()
+        result.combine(electronic_result)
         result.num_iterations = iteration
         result.final_max_gradient = max_grad[0]
         result.finishing_criterion = finishing_criterion
@@ -247,32 +272,38 @@ class AdaptVQE(GroundStateEigensolver):
 class AdaptVQEResult(ElectronicStructureResult):
     """ AdaptVQE Result."""
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._num_iterations = 0
+        self._final_max_gradient = 0.
+        self._finishing_criterion = ''
+
     @property
     def num_iterations(self) -> int:
         """ Returns number of iterations """
-        return self.get('num_iterations')
+        return self._num_iterations
 
     @num_iterations.setter
     def num_iterations(self, value: int) -> None:
         """ Sets number of iterations """
-        self.data['num_iterations'] = value
+        self._num_iterations = value
 
     @property
     def final_max_gradient(self) -> float:
         """ Returns final maximum gradient """
-        return self.get('final_max_gradient')
+        return self._final_max_gradient
 
     @final_max_gradient.setter
     def final_max_gradient(self, value: float) -> None:
         """ Sets final maximum gradient """
-        self.data['final_max_gradient'] = value
+        self._final_max_gradient = value
 
     @property
     def finishing_criterion(self) -> str:
         """ Returns finishing criterion """
-        return self.get('finishing_criterion')
+        return self._finishing_criterion
 
     @finishing_criterion.setter
     def finishing_criterion(self, value: str) -> None:
         """ Sets finishing criterion """
-        self.data['finishing_criterion'] = value
+        self._finishing_criterion = value

@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -17,15 +17,22 @@ from typing import List, Optional, Callable, Union
 
 from qiskit.providers import BaseBackend
 from qiskit.providers import Backend
-from qiskit.aqua import QuantumInstance
-from qiskit.aqua.algorithms import MinimumEigensolver, VQE
-from qiskit.aqua.operators import Z2Symmetries
 from qiskit.chemistry import QiskitChemistryError
 from qiskit.chemistry.circuit.library import HartreeFock
 from qiskit.chemistry.components.variational_forms import UCCSD
 from qiskit.chemistry.core import (Hamiltonian, TransformationType, QubitMappingType,
                                    ChemistryOperator, MolecularGroundStateResult)
 from qiskit.chemistry.drivers import FermionicDriver
+from qiskit.aqua.algorithms import MinimumEigensolver as OldMinimumEigensolver
+from qiskit.algorithms import MinimumEigensolver
+from qiskit.aqua.operators import Z2Symmetries as OldZ2Symmetries
+from qiskit.opflow import Z2Symmetries
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
+from qiskit.aqua.algorithms import VQE as OldVQE
+from qiskit.algorithms import VQE
+from qiskit.utils import QuantumInstance
+from qiskit.aqua import aqua_globals
 
 
 class MolecularGroundStateEnergy:
@@ -33,7 +40,8 @@ class MolecularGroundStateEnergy:
 
     def __init__(self,
                  driver: FermionicDriver,
-                 solver: Optional[MinimumEigensolver] = None,
+                 solver: Optional[Union[OldMinimumEigensolver,
+                                        MinimumEigensolver]] = None,
                  transformation: TransformationType = TransformationType.FULL,
                  qubit_mapping: QubitMappingType = QubitMappingType.PARITY,
                  two_qubit_reduction: bool = True,
@@ -84,18 +92,24 @@ class MolecularGroundStateEnergy:
         self._driver = driver
 
     @property
-    def solver(self) -> MinimumEigensolver:
+    def solver(self) -> Union[OldMinimumEigensolver,
+                              MinimumEigensolver]:
         """ Returns minimum eigen solver """
         return self._solver
 
     @solver.setter
-    def solver(self, solver: MinimumEigensolver) -> None:
+    def solver(self, solver: Union[OldMinimumEigensolver,
+                                   MinimumEigensolver]) -> None:
         """ Sets minimum eigen solver """
         self._solver = solver
 
     def compute_energy(self,
-                       callback: Optional[Callable[[List, int, str, bool, Z2Symmetries],
-                                                   MinimumEigensolver]] = None
+                       callback:
+                       Optional[Callable[[List, int, str, bool,
+                                          Union[OldZ2Symmetries,
+                                                Z2Symmetries]],
+                                         Union[OldMinimumEigensolver,
+                                               MinimumEigensolver]]] = None
                        ) -> MolecularGroundStateResult:
         """
         Compute the ground state energy of the molecule that was supplied via the driver
@@ -137,12 +151,31 @@ class MolecularGroundStateEnergy:
 
         aux_operators = aux_operators if self.solver.supports_aux_operators() else None
 
+        if not aqua_globals.deprecated_code:
+            # the internal method may still return legacy operators which is why we make
+            # sure to convert
+            # all of the operator to the operator flow
+            if isinstance(operator, (OldWeightedPauliOperator,
+                                     WeightedPauliOperator)):
+                operator = operator.to_opflow()
+            if aux_operators is not None:
+                aux_operators = [a.to_opflow()
+                                 if isinstance(a,
+                                               (OldWeightedPauliOperator,
+                                                WeightedPauliOperator))
+                                 else a for a in aux_operators]
+
         raw_result = self.solver.compute_minimum_eigenvalue(operator, aux_operators)
         return core.process_algorithm_result(raw_result)
 
     @staticmethod
-    def get_default_solver(quantum_instance: Union[QuantumInstance, Backend, BaseBackend]) ->\
-            Optional[Callable[[List, int, str, bool, Z2Symmetries], MinimumEigensolver]]:
+    def get_default_solver(quantum_instance: Union[QuantumInstance,
+                                                   Backend, BaseBackend]) ->\
+            Optional[Callable[[List, int, str, bool,
+                               Union[OldZ2Symmetries,
+                                     Z2Symmetries]],
+                              Union[OldMinimumEigensolver,
+                                    MinimumEigensolver]]]:
         """
         Get the default solver callback that can be used with :meth:`compute_energy`
         Args:
@@ -162,7 +195,10 @@ class MolecularGroundStateEnergy:
                              qubit_mapping=qubit_mapping,
                              two_qubit_reduction=two_qubit_reduction,
                              z2_symmetries=z2_symmetries)
-            vqe = VQE(var_form=var_form)
+            if aqua_globals.deprecated_code:
+                vqe = OldVQE(var_form=var_form)
+            else:
+                vqe = VQE(var_form=var_form)
             vqe.quantum_instance = quantum_instance
             return vqe
         return cb_default_solver

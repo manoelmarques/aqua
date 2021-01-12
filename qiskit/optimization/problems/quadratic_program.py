@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -32,10 +32,18 @@ from docplex.mp.model_reader import ModelReader
 from docplex.mp.quad import QuadExpr
 from docplex.mp.vartype import ContinuousVarType, BinaryVarType, IntegerVarType
 
-from qiskit.aqua import MissingOptionalLibraryError
-from qiskit.aqua.operators import (I, ListOp, OperatorBase, PauliOp, SummedOp,
-                                   PauliSumOp, WeightedPauliOperator)
+from qiskit.exceptions import MissingOptionalLibraryError
 from qiskit.quantum_info import Pauli
+from qiskit.aqua.operators import OperatorBase as OldOperatorBase
+from qiskit.opflow import OperatorBase, SummedOp, ListOp, I, PauliOp, \
+    WeightedPauliOperator, PauliSumOp
+from qiskit.aqua.operators import ListOp as OldListOp
+from qiskit.aqua.operators import I as OldI
+from qiskit.aqua.operators import PauliOp as OldPauliOp
+from qiskit.aqua.operators import SummedOp as OldSummedOp
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.aqua.operators import PauliSumOp as OldPauliSumOp
+from qiskit.aqua import aqua_globals
 from .constraint import Constraint, ConstraintSense
 from .linear_constraint import LinearConstraint
 from .linear_expression import LinearExpression
@@ -1162,7 +1170,9 @@ class QuadraticProgram:
         """
         return SubstituteVariables().substitute_variables(self, constants, variables)
 
-    def to_ising(self) -> Tuple[OperatorBase, float]:
+    def to_ising(self) \
+            -> Tuple[Union[OldOperatorBase,
+                           OperatorBase], float]:
         """Return the Ising Hamiltonian of this problem.
 
         Returns:
@@ -1248,19 +1258,29 @@ class QuadraticProgram:
             offset += weight
 
         # Remove paulis whose coefficients are zeros.
-        qubit_op = sum(PauliOp(pauli, coeff=coeff) for coeff, pauli in pauli_list)
+        if aqua_globals.deprecated_code:
+            qubit_op = sum(OldPauliOp(pauli, coeff=coeff)
+                           for coeff, pauli in pauli_list)
+        else:
+            qubit_op = sum(PauliOp(pauli, coeff=coeff)
+                           for coeff, pauli in pauli_list)
 
         # qubit_op could be the integer 0, in this case return an identity operator of
         # appropriate size
-        if isinstance(qubit_op, OperatorBase):
+        if isinstance(qubit_op, (OldOperatorBase, OperatorBase)):
             qubit_op = qubit_op.reduce()
+        elif aqua_globals.deprecated_code:
+            qubit_op = OldI ^ num_nodes
         else:
             qubit_op = I ^ num_nodes
 
         return qubit_op, offset
 
     def from_ising(self,
-                   qubit_op: Union[OperatorBase, WeightedPauliOperator],
+                   qubit_op: Union[OldOperatorBase,
+                                   OperatorBase,
+                                   OldWeightedPauliOperator,
+                                   WeightedPauliOperator],
                    offset: float = 0.0, linear: bool = False) -> None:
         r"""Create a quadratic program from a qubit operator and a shift value.
 
@@ -1277,14 +1297,14 @@ class QuadraticProgram:
             QiskitOptimizationError: If there are more than 2 Pauli Zs in any Pauli term
             NotImplementedError: If the input operator is a ListOp
         """
-        if isinstance(qubit_op, WeightedPauliOperator):
+        if isinstance(qubit_op, (OldWeightedPauliOperator, WeightedPauliOperator)):
             qubit_op = qubit_op.to_opflow()
-        if isinstance(qubit_op, PauliSumOp):
+        if isinstance(qubit_op, (OldPauliSumOp, PauliSumOp)):
             qubit_op = qubit_op.to_pauli_op()
 
         # No support for ListOp yet, this can be added in future
         # pylint: disable=unidiomatic-typecheck
-        if type(qubit_op) == ListOp:
+        if type(qubit_op) in [OldListOp, ListOp]:
             raise NotImplementedError(
                 'Conversion of a ListOp is not supported, convert each '
                 'operator in the ListOp separately.'
@@ -1300,7 +1320,7 @@ class QuadraticProgram:
         # The other elements in the QUBO matrix are for quadratic terms of the qubit operator.
         qubo_matrix = zeros((qubit_op.num_qubits, qubit_op.num_qubits))
 
-        if not isinstance(qubit_op, SummedOp):
+        if not isinstance(qubit_op, (OldSummedOp, SummedOp)):
             pauli_list = [qubit_op.to_pauli_op()]
         else:
             pauli_list = qubit_op.to_pauli_op()

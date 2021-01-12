@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -21,8 +21,8 @@ import numpy as np
 
 from qiskit.quantum_info import Pauli
 
-from qiskit.aqua import aqua_globals
-from qiskit.aqua.algorithms import NumPyMinimumEigensolver
+from qiskit.utils import aqua_globals
+from qiskit.algorithms import NumPyMinimumEigensolver
 from qiskit.finance.applications.ising.portfolio_diversification import \
     (get_portfoliodiversification_solution,
      get_operator,
@@ -205,7 +205,9 @@ class TestPortfolioDiversification(QiskitFinanceTestCase):
                 x=[False, False, False, False, False, False]
             ))
         ]
-        for pauli_a, pauli_b in zip(self.qubit_op._paulis, paulis):
+        opflow_list = [(pauli[1], Pauli.from_label(pauli[0]))
+                       for pauli in self.qubit_op.primitive.to_list()]
+        for pauli_a, pauli_b in zip(opflow_list, paulis):
             cost_a, binary_a = pauli_a
             cost_b, binary_b = pauli_b
             # Note that the construction is a bit iffy, e.g., I can get:
@@ -221,7 +223,7 @@ class TestPortfolioDiversification(QiskitFinanceTestCase):
         """ simple2 test """
         # Computes the cost using the exact eigensolver
         # and compares it against pre-determined value.
-        result = NumPyMinimumEigensolver(self.qubit_op).run()
+        result = NumPyMinimumEigensolver().compute_minimum_eigenvalue(operator=self.qubit_op)
         quantum_solution = get_portfoliodiversification_solution(self.instance,
                                                                  self.n,
                                                                  self.q, result)
@@ -242,7 +244,7 @@ class TestPortfolioDiversification(QiskitFinanceTestCase):
         x, classical_cost = classical_optimizer.cplex_solution()
 
         # Solve the problem using the exact eigensolver
-        result = NumPyMinimumEigensolver(self.qubit_op).run()
+        result = NumPyMinimumEigensolver().compute_minimum_eigenvalue(operator=self.qubit_op)
         quantum_solution = get_portfoliodiversification_solution(self.instance,
                                                                  self.n,
                                                                  self.q, result)

@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,13 +16,14 @@ import logging
 from typing import Optional, List, Dict
 
 import numpy as np
-from qiskit.aqua import AquaError
-from qiskit.aqua.algorithms import VQAlgorithm
+from qiskit.chemistry import QiskitChemistryError
 from qiskit.chemistry.drivers import BaseDriver
 from qiskit.chemistry.algorithms.ground_state_solvers import GroundStateSolver
 from qiskit.chemistry.results.bopes_sampler_result import BOPESSamplerResult
 from qiskit.chemistry.algorithms.pes_samplers.extrapolator import Extrapolator, WindowExtrapolator
 from qiskit.chemistry.results import EigenstateResult
+from qiskit.aqua.algorithms import VQAlgorithm
+from qiskit.algorithms import VariationalAlgorithm
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class BOPESSampler:
                            and method to extrapolate variational parameters.
 
         Raises:
-            AquaError: If ``num_boostrap`` is an integer smaller than 2, or
+            QiskitChemistryError: If ``num_boostrap`` is an integer smaller than 2, or
                 if ``num_boostrap`` is larger than 2 and the extrapolator is not an instance of
                 ``WindowExtrapolator``.
         """
@@ -72,16 +73,16 @@ class BOPESSampler:
                 self._num_bootstrap = 2
             elif num_bootstrap >= 2:
                 if not isinstance(self._extrapolator, WindowExtrapolator):
-                    raise AquaError(
+                    raise QiskitChemistryError(
                         'If num_bootstrap >= 2 then the extrapolator must be an instance '
                         'of WindowExtrapolator, got {} instead'.format(self._extrapolator))
                 self._num_bootstrap = num_bootstrap
                 self._extrapolator.window = num_bootstrap  # window for extrapolator
             else:
-                raise AquaError(
+                raise QiskitChemistryError(
                     'num_bootstrap must be None or an integer greater than or equal to 2')
 
-        if isinstance(self._gss.solver, VQAlgorithm):
+        if isinstance(self._gss.solver, (VQAlgorithm, VariationalAlgorithm)):
             # Save initial point passed to min_eigensolver;
             # this will be used when NOT bootstrapping
             self._initial_point = self._gss.solver.initial_point
@@ -98,13 +99,13 @@ class BOPESSampler:
             BOPES Sampler Result
 
         Raises:
-            AquaError: if the driver does not have a molecule specified.
+            QiskitChemistryError: if the driver does not have a molecule specified.
         """
 
         self._driver = driver
 
         if self._driver.molecule is None:
-            raise AquaError('Driver MUST be configured with a Molecule.')
+            raise QiskitChemistryError('Driver MUST be configured with a Molecule.')
 
         # full dictionary of points
         self._raw_results = self._run_points(points)
@@ -130,7 +131,7 @@ class BOPESSampler:
             The results for all points.
         """
         raw_results = dict()   # type: Dict[float, EigenstateResult]
-        if isinstance(self._gss.solver, VQAlgorithm):
+        if isinstance(self._gss.solver, (VQAlgorithm, VariationalAlgorithm)):
             self._points_optparams = dict()
             self._gss.solver.initial_point = self._initial_point
 
@@ -156,7 +157,8 @@ class BOPESSampler:
         self._driver.molecule.perturbations = [point]
 
         # find closest previously run point and take optimal parameters
-        if isinstance(self._gss.solver, VQAlgorithm) and self._bootstrap:
+        if isinstance(self._gss.solver, (VQAlgorithm,
+                                         VariationalAlgorithm)) and self._bootstrap:
             prev_points = list(self._points_optparams.keys())
             prev_params = list(self._points_optparams.values())
             n_pp = len(prev_points)
@@ -187,7 +189,7 @@ class BOPESSampler:
         result = self._gss.solve(self._driver)
 
         # Save optimal point to bootstrap
-        if isinstance(self._gss.solver, VQAlgorithm):
+        if isinstance(self._gss.solver, (VQAlgorithm, VariationalAlgorithm)):
             # at every point evaluation, the optimal params are updated
             optimal_params = self._gss.solver.optimal_params
             self._points_optparams[point] = optimal_params

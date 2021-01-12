@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,8 +18,10 @@ from typing import List, Tuple, Union, Optional
 
 import numpy as np
 
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
 from qiskit.quantum_info import Pauli
-from qiskit.aqua.operators import WeightedPauliOperator
+from qiskit.aqua import aqua_globals
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,6 @@ class BosonicOperator:
             basis: Is a list defining the number of modals per mode. E.g. for a 3 modes system
                 with 4 modals per mode basis = [4,4,4].
         """
-
         self._basis = basis
         self._degree = len(h)
         self._num_modes = len(basis)
@@ -81,7 +82,9 @@ class BosonicOperator:
 
         return paulis
 
-    def _one_body_mapping(self, h1_ij_aij: Tuple[float, Pauli, Pauli]) -> WeightedPauliOperator:
+    def _one_body_mapping(self, h1_ij_aij: Tuple[float, Pauli, Pauli]) \
+            -> Union[OldWeightedPauliOperator,
+                     WeightedPauliOperator]:
         """ Subroutine for one body mapping.
 
         Args:
@@ -99,7 +102,10 @@ class BosonicOperator:
                 pauli_term = [coeff, pauli_prod[0]]
                 pauli_list.append(pauli_term)
 
-        op = WeightedPauliOperator(pauli_list)
+        if aqua_globals.deprecated_code:
+            op = OldWeightedPauliOperator(pauli_list)
+        else:
+            op = WeightedPauliOperator(pauli_list)
 
         return op
 
@@ -125,7 +131,9 @@ class BosonicOperator:
 
         return final_list
 
-    def _combine(self, modes: List[int], paulis: dict, coeff: float) -> WeightedPauliOperator:
+    def _combine(self, modes: List[int], paulis: dict, coeff: float) \
+            -> Union[OldWeightedPauliOperator,
+                     WeightedPauliOperator]:
         """ Combines the paulis of each mode together in one WeightedPauliOperator.
 
         Args:
@@ -158,10 +166,15 @@ class BosonicOperator:
         for pauli in pauli_list:
             new_pauli_list.append([coeff * pauli[0], pauli[1]])
 
-        return WeightedPauliOperator(new_pauli_list)
+        if aqua_globals.deprecated_code:
+            return OldWeightedPauliOperator(new_pauli_list)
+        else:
+            return WeightedPauliOperator(new_pauli_list)
 
     def mapping(self, qubit_mapping: str = 'direct',
-                threshold: float = 1e-8) -> WeightedPauliOperator:
+                threshold: float = 1e-8)  \
+            -> Union[OldWeightedPauliOperator,
+                     WeightedPauliOperator]:
         """ Maps a bosonic operator into a qubit operator.
 
         Args:
@@ -175,7 +188,10 @@ class BosonicOperator:
         Raises:
             ValueError: If requested mapping is not supported
         """
-        qubit_op = WeightedPauliOperator([])
+        if aqua_globals.deprecated_code:
+            qubit_op = OldWeightedPauliOperator([])
+        else:
+            qubit_op = WeightedPauliOperator([])
 
         pau = []
         for mode in range(self._num_modes):

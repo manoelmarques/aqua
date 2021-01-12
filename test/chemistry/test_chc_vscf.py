@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,9 +18,9 @@ import warnings
 from test.chemistry import QiskitChemistryTestCase
 
 from qiskit import BasicAer
-from qiskit.aqua import QuantumInstance, aqua_globals
-from qiskit.aqua.algorithms import VQE
-from qiskit.aqua.components.optimizers import COBYLA
+from qiskit.utils import QuantumInstance, aqua_globals
+from qiskit.algorithms import VQE
+from qiskit.algorithms.optimizers import COBYLA
 from qiskit.chemistry import BosonicOperator
 from qiskit.chemistry.components.initial_states import VSCF
 from qiskit.chemistry.components.variational_forms import UVCC, CHC
@@ -77,10 +77,10 @@ class TestCHCVSCF(QiskitChemistryTestCase):
                                   seed_transpiler=2, seed_simulator=2)
         optimizer = COBYLA(maxiter=1000)
 
-        algo = VQE(qubit_op, chc_varform, optimizer)
-        vqe_result = algo.run(backend)
+        algo = VQE(chc_varform, optimizer, quantum_instance=backend)
+        vqe_result = algo.compute_minimum_eigenvalue(operator=qubit_op)
 
-        energy = vqe_result['optimal_value']
+        energy = vqe_result.optimal_value
 
         self.assertAlmostEqual(energy, self.reference_energy, places=4)
 

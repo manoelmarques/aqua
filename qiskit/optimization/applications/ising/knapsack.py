@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -25,18 +25,24 @@ We need to maximize sum(x[i]*v[i]) while respecting W_max >= sum(x[i]*w[i])
 
 """
 
+from typing import Tuple, Union, List
 import logging
 import math
 import numpy as np
 
 from qiskit.quantum_info import Pauli
-from qiskit.aqua.operators import WeightedPauliOperator
-
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import PauliSumOp
+from qiskit.aqua import aqua_globals
 
 logger = logging.getLogger(__name__)
 
 
-def get_operator(values, weights, max_weight):
+def get_operator(values: List[int],
+                 weights: List[int],
+                 max_weight: int) \
+        -> Tuple[Union[OldWeightedPauliOperator,
+                       PauliSumOp], float]:
     """
     Generate Hamiltonian for the knapsack problem.
 
@@ -63,13 +69,13 @@ def get_operator(values, weights, max_weight):
         and the sum of values is maximized.
 
     Args:
-        values (list of non-negative integers) : a list of values
-        weights (list of non-negative integers) : a list of weights
-        max_weight (non negative integer) : the maximum weight the knapsack can carry
+        values: a list of non-negative values
+        weights: a list of non-negative weights
+        max_weight: the maximum weight the knapsack can carry
 
     Returns:
-        WeightedPauliOperator: operator for the Hamiltonian
-        float: a constant shift for the obj function.
+        operator for the Hamiltonian
+        a constant shift for the obj function.
 
     Raises:
         ValueError: values and weights have different lengths
@@ -175,7 +181,11 @@ def get_operator(values, weights, max_weight):
         pauli_list.append([coefficient, pauli_op])
         shift -= coefficient
 
-    return WeightedPauliOperator(paulis=pauli_list), shift
+    if aqua_globals.deprecated_code:
+        return OldWeightedPauliOperator(paulis=pauli_list), shift
+    else:
+        opflow_list = [(pauli[1].to_label(), pauli[0]) for pauli in pauli_list]
+        return PauliSumOp.from_list(opflow_list), shift
 
 
 def get_solution(x, values):

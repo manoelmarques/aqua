@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -13,6 +13,7 @@
 """The Numpy Minimum Eigensolver algorithm."""
 
 from typing import List, Optional, Union, Dict, Any, Callable
+import warnings
 import logging
 import pprint
 import numpy as np
@@ -49,6 +50,10 @@ class NumPyMinimumEigensolver(ClassicalAlgorithm, MinimumEigensolver):
                 whether to consider this value or not. If there is no
                 feasible element, the result can even be empty.
         """
+        warnings.warn(
+            ClassicalAlgorithm.DEPR_MSG.format('NumPyMinimumEigensolver',
+                                               'NumPyMinimumEigensolver'),
+            DeprecationWarning)
         self._ces = NumPyEigensolver(operator=operator, k=1, aux_operators=aux_operators,
                                      filter_criterion=filter_criterion)
         # TODO remove

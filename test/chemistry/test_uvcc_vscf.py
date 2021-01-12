@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,9 +18,9 @@ from test.chemistry import QiskitChemistryTestCase
 from qiskit import BasicAer
 from qiskit.chemistry import BosonicOperator
 
-from qiskit.aqua import aqua_globals, QuantumInstance
-from qiskit.aqua.algorithms import VQE
-from qiskit.aqua.components.optimizers import COBYLA
+from qiskit.utils import aqua_globals, QuantumInstance
+from qiskit.algorithms import VQE
+from qiskit.algorithms.optimizers import COBYLA
 from qiskit.chemistry.components.initial_states import VSCF
 from qiskit.chemistry.components.variational_forms import UVCC
 
@@ -69,13 +69,13 @@ class TestUVCCVSCF(QiskitChemistryTestCase):
         num_qubits = sum(basis)
         uvcc_varform = UVCC(num_qubits, basis, [0, 1], initial_state=init_state)
 
-        q_instance = QuantumInstance(BasicAer.get_backend('statevector_simulator'),
-                                     seed_transpiler=90, seed_simulator=12)
+        q_i = QuantumInstance(BasicAer.get_backend('statevector_simulator'),
+                              seed_transpiler=90, seed_simulator=12)
         optimizer = COBYLA(maxiter=1000)
 
-        algo = VQE(qubit_op, uvcc_varform, optimizer)
-        vqe_result = algo.run(q_instance)
+        algo = VQE(uvcc_varform, optimizer, quantum_instance=q_i)
+        vqe_result = algo.compute_minimum_eigenvalue(operator=qubit_op)
 
-        energy = vqe_result['optimal_value']
+        energy = vqe_result.optimal_value
 
         self.assertAlmostEqual(energy, self.reference_energy, places=4)

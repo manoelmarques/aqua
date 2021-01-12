@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -19,7 +19,7 @@ from test.optimization.optimization_test_case import QiskitOptimizationTestCase
 
 from docplex.mp.model import Model, DOcplexException
 
-from qiskit.aqua import MissingOptionalLibraryError
+from qiskit.exceptions import MissingOptionalLibraryError
 from qiskit.optimization import QuadraticProgram, QiskitOptimizationError, INFINITY
 from qiskit.optimization.problems import Variable, Constraint, QuadraticObjective
 

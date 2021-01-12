@@ -35,7 +35,8 @@ class TestADMMOptimizer(QiskitOptimizationTestCase):
 
         admm_params = ADMMParameters()
 
-        solver = ADMMOptimizer(params=admm_params, continuous_optimizer=CobylaOptimizer())
+        solver = ADMMOptimizer(params=admm_params,
+                               continuous_optimizer=CobylaOptimizer())
         solution = solver.solve(op)
         self.assertIsNotNone(solution)
         self.assertIsInstance(solution, ADMMOptimizationResult)

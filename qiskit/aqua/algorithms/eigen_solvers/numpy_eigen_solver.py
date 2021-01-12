@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -67,6 +67,9 @@ class NumPyEigensolver(ClassicalAlgorithm, Eigensolver):
                 elements that satisfies the criterion is smaller than `k` then the returned list has
                 fewer elements and can even be empty.
         """
+        warnings.warn(
+            ClassicalAlgorithm.DEPR_MSG.format('NumPyEigensolver', 'NumPyEigensolver'),
+            DeprecationWarning)
         validate_min('k', k, 1)
         super().__init__()
 

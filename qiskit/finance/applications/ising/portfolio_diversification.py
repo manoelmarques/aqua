@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,16 +12,26 @@
 
 """ portfolio diversification """
 
+from typing import Union
 import numpy as np
-from qiskit.quantum_info import Pauli
 
-from qiskit.aqua.algorithms import MinimumEigensolverResult
-from qiskit.aqua.operators import WeightedPauliOperator, StateFn
+from qiskit.quantum_info import Pauli
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import PauliSumOp
+from qiskit.aqua import aqua_globals
+from qiskit.aqua.algorithms import MinimumEigensolverResult as OldMinimumEigensolverResult
+from qiskit.algorithms import MinimumEigensolverResult
+from qiskit.aqua.operators import StateFn as OldStateFn
+from qiskit.opflow import StateFn
 
 # pylint: disable=invalid-name
 
 
-def get_operator(rho: np.ndarray, n: int, q: int) -> WeightedPauliOperator:
+def get_operator(rho: np.ndarray,
+                 n: int,
+                 q: int) \
+        -> Union[OldWeightedPauliOperator,
+                 PauliSumOp]:
     """Converts an instance of portfolio optimization into a list of Paulis.
 
     Args:
@@ -122,13 +132,20 @@ def get_operator(rho: np.ndarray, n: int, q: int) -> WeightedPauliOperator:
                 pauli_list.append((2 * Qz[i, j], Pauli(vp, wp)))
 
     pauli_list.append((cz, Pauli(np.zeros(N), np.zeros(N))))
-    return WeightedPauliOperator(paulis=pauli_list)
+
+    if aqua_globals.deprecated_code:
+        return OldWeightedPauliOperator(paulis=pauli_list)
+    else:
+        opflow_list = [(pauli[1].to_label(), pauli[0]) for pauli in pauli_list]
+        return PauliSumOp.from_list(opflow_list)
 
 
-def get_portfoliodiversification_solution(rho: np.ndarray,
-                                          n: int,
-                                          q: int,
-                                          result: MinimumEigensolverResult) -> np.ndarray:
+def get_portfoliodiversification_solution(
+        rho: np.ndarray,
+        n: int,
+        q: int,
+        result: Union[OldMinimumEigensolverResult,
+                      MinimumEigensolverResult]) -> np.ndarray:
     """
     Tries to obtain a feasible solution (in vector form) of an instance of
     portfolio diversification from the results dictionary.
@@ -144,7 +161,7 @@ def get_portfoliodiversification_solution(rho: np.ndarray,
     """
     del rho, q  # unused
     v = result.eigenstate
-    if isinstance(v, StateFn):
+    if isinstance(v, (OldStateFn, StateFn)):
         v = v.to_matrix()
     # N = (n + 1) * n  # number of qubits
     N = n ** 2 + n

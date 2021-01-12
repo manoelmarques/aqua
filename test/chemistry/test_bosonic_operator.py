@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -17,7 +17,7 @@ from test.chemistry import QiskitChemistryTestCase
 
 import numpy as np
 
-from qiskit.aqua.algorithms import NumPyMinimumEigensolver
+from qiskit.algorithms import NumPyMinimumEigensolver
 from qiskit.chemistry import BosonicOperator
 
 
@@ -95,8 +95,8 @@ class TestBosonicOperator(QiskitChemistryTestCase):
         """ mapping test """
         qubit_op = self.bos_op.mapping('direct', threshold=1e-5)
         algo = NumPyMinimumEigensolver(
-            qubit_op, filter_criterion=self.bos_op.direct_mapping_filtering_criterion)
-        result = algo.run()
+            filter_criterion=self.bos_op.direct_mapping_filtering_criterion)
+        result = algo.compute_minimum_eigenvalue(operator=qubit_op)
         gs_energy = np.real(result['eigenvalue'])
 
         self.assertAlmostEqual(gs_energy, self.reference_energy, places=4)

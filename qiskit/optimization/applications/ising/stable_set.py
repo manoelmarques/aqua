@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,24 +18,29 @@ as they are not really used and are always assumed to be 1.  The
 graph is represented by an adjacency matrix.
 """
 
+from typing import Tuple, Union
 import logging
 
 import numpy as np
-from qiskit.quantum_info import Pauli
 
-from qiskit.aqua.operators import WeightedPauliOperator
+from qiskit.quantum_info import Pauli
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import PauliSumOp
+from qiskit.aqua import aqua_globals
 
 logger = logging.getLogger(__name__)
 
 
-def get_operator(w):
+def get_operator(w: np.ndarray) \
+        -> Tuple[Union[OldWeightedPauliOperator,
+                       PauliSumOp], float]:
     """Generate Hamiltonian for the maximum stable set in a graph.
 
     Args:
-        w (numpy.ndarray) : adjacency matrix.
+        w: adjacency matrix.
 
     Returns:
-        tuple(WeightedPauliOperator, float): operator for the Hamiltonian and a
+        operator for the Hamiltonian and a
         constant shift for the obj function.
 
     """
@@ -57,7 +62,12 @@ def get_operator(w):
         z_p = np.zeros(num_nodes, dtype=np.bool)
         z_p[i] = True
         pauli_list.append([degree - 1 / 2, Pauli(z_p, x_p)])
-    return WeightedPauliOperator(paulis=pauli_list), shift - num_nodes / 2
+
+    if aqua_globals.deprecated_code:
+        return OldWeightedPauliOperator(paulis=pauli_list), shift - num_nodes / 2
+    else:
+        opflow_list = [(pauli[1].to_label(), pauli[0]) for pauli in pauli_list]
+        return PauliSumOp.from_list(opflow_list), shift - num_nodes / 2
 
 
 def stable_set_value(x, w):

@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,12 +16,13 @@ parameter pairs.
 """
 
 import unittest
+from test.chemistry import QiskitChemistryTestCase
 from sklearn import linear_model
 from qiskit.chemistry.algorithms.pes_samplers.extrapolator import Extrapolator, \
     WindowExtrapolator, PolynomialExtrapolator, DifferentialExtrapolator, \
     PCAExtrapolator, SieveExtrapolator
 
-from qiskit.aqua import AquaError
+from qiskit.chemistry import QiskitChemistryError
 
 PARAM_DICT = {
     0.5: [0.07649726233077458, 1.2340960400591198e-07, 2.719308771599091e-08,
@@ -87,7 +88,7 @@ PARAM_DICT = {
 }
 
 
-class TestExtrapolators(unittest.TestCase):
+class TestExtrapolators(QiskitChemistryTestCase):
     """Test Extrapolators."""
 
     def test_factory(self):
@@ -99,7 +100,7 @@ class TestExtrapolators(unittest.TestCase):
         self.assertIsInstance(Extrapolator.factory(mode='diff_model'), DifferentialExtrapolator)
         self.assertIsInstance(Extrapolator.factory(mode='pca'), PCAExtrapolator)
         self.assertIsInstance(Extrapolator.factory(mode='l1'), SieveExtrapolator)
-        self.assertRaises(AquaError, Extrapolator.factory, mode="unknown")
+        self.assertRaises(QiskitChemistryError, Extrapolator.factory, mode="unknown")
 
     def test_polynomial_extrapolator(self):
         """

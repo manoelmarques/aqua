@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -15,17 +15,25 @@
 Deal with Gset format. See https://web.stanford.edu/~yyye/yyye/Gset/
 """
 
+from typing import Tuple, Union
 import logging
 
 import numpy as np
-from qiskit.quantum_info import Pauli
 
-from qiskit.aqua.operators import WeightedPauliOperator
+from qiskit.quantum_info import Pauli
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import PauliSumOp
+from qiskit.aqua import aqua_globals
 
 logger = logging.getLogger(__name__)
 
+# pylint: disable=invalid-name
 
-def get_operator(weight_matrix, K):  # pylint: disable=invalid-name
+
+def get_operator(weight_matrix: np.ndarray,
+                 K: np.ndarray) \
+        -> Tuple[Union[OldWeightedPauliOperator,
+                       PauliSumOp], float]:
     r"""
     Generate Hamiltonian for the clique.
 
@@ -53,21 +61,20 @@ def get_operator(weight_matrix, K):  # pylint: disable=invalid-name
     In this case, one needs to use Hb\^2 in the hamiltonian to minimize the difference.
 
     Args:
-        weight_matrix (numpy.ndarray) : adjacency matrix.
-        K (numpy.ndarray): K
+        weight_matrix: adjacency matrix.
+        K: K
 
     Returns:
-        tuple(WeightedPauliOperator, float):
-            The operator for the Hamiltonian and a constant shift for the obj function.
+        The operator for the Hamiltonian and a constant shift for the obj function.
     """
     # pylint: disable=invalid-name
     num_nodes = len(weight_matrix)
     pauli_list = []
-    shift = 0
+    shift = 0.
 
     Y = K - 0.5 * num_nodes  # Y = K - sum_{v}{1 / 2}
 
-    A = 1000
+    A = 1000.
     # Ha part:
     shift += A * Y * Y
 
@@ -108,7 +115,11 @@ def get_operator(weight_matrix, K):  # pylint: disable=invalid-name
 
                 shift += -0.25
 
-    return WeightedPauliOperator(paulis=pauli_list), shift
+    if aqua_globals.deprecated_code:
+        return OldWeightedPauliOperator(paulis=pauli_list), shift
+    else:
+        opflow_list = [(pauli[1].to_label(), pauli[0]) for pauli in pauli_list]
+        return PauliSumOp.from_list(opflow_list), shift
 
 
 def satisfy_or_not(x, w, K):  # pylint: disable=invalid-name

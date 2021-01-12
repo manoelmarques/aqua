@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,12 +16,13 @@ import csv
 import logging
 from math import fsum
 from timeit import default_timer
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Union
 import warnings
 import numpy as np
 
 from qiskit.aqua.algorithms import ClassicalAlgorithm
-from qiskit.aqua.operators import WeightedPauliOperator
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import PauliSumOp
 from qiskit.aqua.utils.validation import validate_min, validate_range
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,8 @@ class ClassicalCPLEX(ClassicalAlgorithm):
     if you need more information in that regard.
     """
 
-    def __init__(self, operator: WeightedPauliOperator,
+    def __init__(self, operator: Union[OldWeightedPauliOperator,
+                                       PauliSumOp],
                  timelimit: int = 600, thread: int = 1,
                  display: int = 2) -> None:
         """
@@ -60,6 +62,9 @@ class ClassicalCPLEX(ClassicalAlgorithm):
         validate_range('display', display, 0, 5)
         super().__init__()
         self._ins = IsingInstance()
+        if not isinstance(operator, OldWeightedPauliOperator):
+            operator = operator.to_pauli_op().to_legacy_op()
+
         self._ins.parse(operator.to_dict()['paulis'])
         self._timelimit = timelimit
         self._thread = thread
@@ -85,7 +90,8 @@ class CPLEX_Ising(ClassicalCPLEX):
     The deprecated CPLEX Ising algorithm.
     """
 
-    def __init__(self, operator: WeightedPauliOperator,
+    def __init__(self, operator: Union[OldWeightedPauliOperator,
+                                       PauliSumOp],
                  timelimit: int = 600, thread: int = 1,
                  display: int = 2) -> None:
         warnings.warn('Deprecated class {}, use {}.'.format('CPLEX_Ising', 'ClassicalCPLEX'),

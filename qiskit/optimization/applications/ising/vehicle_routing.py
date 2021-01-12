@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,12 +16,15 @@ and provides some related routines (extracting a solution,
 checking its objective function value).
 """
 
-from typing import Tuple
+from typing import Tuple, Union
 import numpy as np
-from qiskit.quantum_info import Pauli
 
-from qiskit.aqua.algorithms import MinimumEigensolverResult
-from qiskit.aqua.operators import WeightedPauliOperator
+from qiskit.quantum_info import Pauli
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import PauliSumOp
+from qiskit.aqua.algorithms import MinimumEigensolverResult as OldMinimumEigensolverResult
+from qiskit.algorithms import MinimumEigensolverResult
+from qiskit.aqua import aqua_globals
 
 # pylint: disable=invalid-name
 
@@ -109,7 +112,11 @@ def get_vehiclerouting_cost(instance: np.ndarray, n: int, K: int, x_sol: np.ndar
     return cost
 
 
-def get_operator(instance: np.ndarray, n: int, K: int) -> WeightedPauliOperator:
+def get_operator(instance: np.ndarray,
+                 n: int,
+                 K: int) \
+        -> Union[OldWeightedPauliOperator,
+                 PauliSumOp]:
     """Converts an instance of a vehicle routing problem into a list of Paulis.
 
     Args:
@@ -151,13 +158,19 @@ def get_operator(instance: np.ndarray, n: int, K: int) -> WeightedPauliOperator:
                 pauli_list.append((2 * q_z[i, j], Pauli(v_p, w_p)))
 
     pauli_list.append((c_z, Pauli(np.zeros(N), np.zeros(N))))
-    return WeightedPauliOperator(paulis=pauli_list)
+    if aqua_globals.deprecated_code:
+        return OldWeightedPauliOperator(paulis=pauli_list)
+    else:
+        opflow_list = [(pauli[1].to_label(), pauli[0]) for pauli in pauli_list]
+        return PauliSumOp.from_list(opflow_list)
 
 
-def get_vehiclerouting_solution(instance: np.ndarray,
-                                n: int,
-                                K: int,
-                                result: MinimumEigensolverResult) -> np.ndarray:
+def get_vehiclerouting_solution(
+        instance: np.ndarray,
+        n: int,
+        K: int,
+        result: Union[OldMinimumEigensolverResult,
+                      MinimumEigensolverResult]) -> np.ndarray:
     """Tries to obtain a feasible solution (in vector form) of an instance
         of vehicle routing from the results dictionary.
 

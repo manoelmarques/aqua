@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,7 +16,8 @@ import unittest
 from test.optimization import QiskitOptimizationTestCase
 import numpy as np
 
-from qiskit.aqua import aqua_globals, MissingOptionalLibraryError
+from qiskit.utils import aqua_globals
+from qiskit.exceptions import MissingOptionalLibraryError
 from qiskit.optimization.applications.ising import max_cut
 from qiskit.optimization.applications.ising.common import random_graph
 from qiskit.aqua.algorithms import ClassicalCPLEX

@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -23,11 +23,12 @@ from qiskit.tools.events import TextProgressBar
 
 from qiskit.circuit import ParameterVector, Parameter
 
-from qiskit.aqua import aqua_globals
-from qiskit.aqua.operators import WeightedPauliOperator
+from qiskit.utils import aqua_globals
 from qiskit.aqua.components.initial_states import InitialState
 from qiskit.aqua.components.variational_forms import VariationalForm
 from qiskit.chemistry.bosonic_operator import BosonicOperator
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,8 @@ class UVCC(VariationalForm):
 
     @staticmethod
     def _build_hopping_operator(index: List[List[int]], basis: List[int], qubit_mapping: str) \
-            -> WeightedPauliOperator:
+            -> Union[OldWeightedPauliOperator,
+                     WeightedPauliOperator]:
         """
         Builds a hopping operator given the list of indices (index) that is a single, a double
         or a higher order excitation.
@@ -212,7 +214,8 @@ class UVCC(VariationalForm):
 
     @staticmethod
     def _construct_circuit_for_one_excited_operator(
-            qubit_op_and_param: Tuple[WeightedPauliOperator, float],
+            qubit_op_and_param: Tuple[Union[OldWeightedPauliOperator,
+                                            WeightedPauliOperator], float],
             qr: QuantumRegister, num_time_slices: int) -> QuantumCircuit:
         """ Construct the circuit building block corresponding to one excitation operator
 

@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -13,6 +13,7 @@
 """ The Quantum Approximate Optimization Algorithm. """
 
 from typing import List, Callable, Optional, Union
+import warnings
 import logging
 import numpy as np
 
@@ -127,6 +128,9 @@ class QAOA(VQE):
                 variational form, the evaluated mean and the evaluated standard deviation.
             quantum_instance: Quantum Instance or Backend
         """
+        warnings.warn(
+            VQE.DEPR_MSG.format('QAOA', 'QAOA'),
+            DeprecationWarning)
         validate_min('p', p, 1)
 
         self._p = p

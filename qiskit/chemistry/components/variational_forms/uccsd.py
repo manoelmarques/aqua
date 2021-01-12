@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -24,16 +24,20 @@ import collections
 import copy
 
 import numpy as np
-from qiskit.aqua.utils.validation import validate_min, validate_in_set
+
+from qiskit.utils.validation import validate_min, validate_in_set
 from qiskit import QuantumRegister, QuantumCircuit
 from qiskit.tools import parallel_map
 from qiskit.tools.events import TextProgressBar
 
-from qiskit.aqua import aqua_globals
 from qiskit.aqua.components.initial_states import InitialState
-from qiskit.aqua.operators import WeightedPauliOperator, Z2Symmetries
 from qiskit.aqua.components.variational_forms import VariationalForm
 from qiskit.chemistry.fermionic_operator import FermionicOperator
+from qiskit.aqua.operators import Z2Symmetries as OldZ2Symmetries
+from qiskit.opflow import Z2Symmetries
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
+from qiskit.aqua import aqua_globals
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +61,8 @@ class UCCSD(VariationalForm):
                  two_qubit_reduction: bool = True,
                  num_time_slices: int = 1,
                  shallow_circuit_concat: bool = True,
-                 z2_symmetries: Optional[Z2Symmetries] = None,
+                 z2_symmetries: Optional[Union[OldZ2Symmetries,
+                                               Z2Symmetries]] = None,
                  method_singles: str = 'both',
                  method_doubles: str = 'ucc',
                  excitation_type: str = 'sd',
@@ -110,8 +115,12 @@ class UCCSD(VariationalForm):
         validate_in_set('excitation_type', excitation_type, {'sd', 's', 'd'})
         super().__init__()
 
-        self._z2_symmetries = Z2Symmetries([], [], [], []) \
-            if z2_symmetries is None else z2_symmetries
+        self._z2_symmetries = z2_symmetries
+        if self._z2_symmetries is None:
+            if aqua_globals.deprecated_code:
+                self._z2_symmetries = OldZ2Symmetries([], [], [], [])
+            else:
+                self._z2_symmetries = Z2Symmetries([], [], [], [])
 
         self._num_qubits = num_orbitals if not two_qubit_reduction else num_orbitals - 2
         self._num_qubits = self._num_qubits if self._z2_symmetries.is_empty() \
@@ -153,7 +162,8 @@ class UCCSD(VariationalForm):
                                            excitation_type=self._excitation_type,)
 
         self._hopping_ops, self._num_parameters = self._build_hopping_operators()
-        self._excitation_pool = None  # type: Optional[List[WeightedPauliOperator]]
+        self._excitation_pool: Optional[List[Union[OldWeightedPauliOperator,
+                                                   WeightedPauliOperator]]] = None
         self._bounds = [(-np.pi, np.pi) for _ in range(self._num_parameters)]
 
         self._logging_construct_circuit = True
@@ -226,12 +236,16 @@ class UCCSD(VariationalForm):
         return self._double_excitations
 
     @property
-    def excitation_pool(self) -> List[WeightedPauliOperator]:
+    def excitation_pool(self) -> List[Union[OldWeightedPauliOperator,
+                                            WeightedPauliOperator]]:
         """Returns the full list of available excitations (called the pool)."""
         return self._excitation_pool
 
     @excitation_pool.setter
-    def excitation_pool(self, excitation_pool: List[WeightedPauliOperator]) -> None:
+    def excitation_pool(self,
+                        excitation_pool:
+                        List[Union[OldWeightedPauliOperator,
+                                   WeightedPauliOperator]]) -> None:
         """Sets the excitation pool."""
         self._excitation_pool = excitation_pool.copy()
 
@@ -303,12 +317,18 @@ class UCCSD(VariationalForm):
         dummpy_fer_op = FermionicOperator(h1=h_1, h2=h_2)
         qubit_op = dummpy_fer_op.mapping(qubit_mapping)
         if two_qubit_reduction:
-            qubit_op = Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
+            if aqua_globals.deprecated_code:
+                qubit_op = OldZ2Symmetries.two_qubit_reduction(qubit_op, num_particles)
+            else:
+                qubit_op = Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
 
         if not z2_symmetries.is_empty():
             symm_commuting = True
             for symmetry in z2_symmetries.symmetries:
-                symmetry_op = WeightedPauliOperator(paulis=[[1.0, symmetry]])
+                if aqua_globals.deprecated_code:
+                    symmetry_op = OldWeightedPauliOperator(paulis=[[1.0, symmetry]])
+                else:
+                    symmetry_op = WeightedPauliOperator(paulis=[[1.0, symmetry]])
                 symm_commuting = qubit_op.commute_with(symmetry_op)
                 if not symm_commuting:
                     break
@@ -344,12 +364,13 @@ class UCCSD(VariationalForm):
         self._num_parameters = 0
         self._bounds = []
 
-    def push_hopping_operator(self, excitation):
+    def push_hopping_operator(self, excitation: Union[OldWeightedPauliOperator,
+                                                      WeightedPauliOperator]):
         """
         Pushes a new hopping operator.
 
         Args:
-            excitation (WeightedPauliOperator): the new hopping operator to be added
+            excitation: the new hopping operator to be added
         """
         self._hopping_ops.append(excitation)
         self._num_parameters = len(self._hopping_ops) * self._reps

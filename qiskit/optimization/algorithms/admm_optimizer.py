@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,8 +18,10 @@ import warnings
 from typing import List, Optional, Tuple, cast
 
 import numpy as np
-from qiskit.aqua.algorithms import NumPyMinimumEigensolver
 
+from qiskit.aqua.algorithms import NumPyMinimumEigensolver as OldNumPyMinimumEigensolver
+from qiskit.algorithms import NumPyMinimumEigensolver
+from qiskit.aqua import aqua_globals
 from .minimum_eigen_optimizer import MinimumEigenOptimizer
 from .optimization_algorithm import (OptimizationResultStatus, OptimizationAlgorithm,
                                      OptimizationResult)
@@ -228,7 +230,9 @@ class ADMMOptimizer(OptimizationAlgorithm):
         self._params = params or ADMMParameters()
 
         # create optimizers if not specified
-        self._qubo_optimizer = qubo_optimizer or MinimumEigenOptimizer(NumPyMinimumEigensolver())
+        e_s = OldNumPyMinimumEigensolver() \
+            if aqua_globals.deprecated_code else NumPyMinimumEigensolver()
+        self._qubo_optimizer = qubo_optimizer or MinimumEigenOptimizer(e_s)
         self._continuous_optimizer = continuous_optimizer or SlsqpOptimizer()
 
         # internal state where we'll keep intermediate solution

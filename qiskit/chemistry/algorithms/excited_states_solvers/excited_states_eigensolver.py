@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -15,14 +15,16 @@
 import logging
 from typing import List, Union, Optional, Any
 
-from qiskit.aqua.algorithms import Eigensolver
-from qiskit.aqua.operators import WeightedPauliOperator
 from qiskit.chemistry import FermionicOperator
 from qiskit.chemistry.drivers import BaseDriver
 from qiskit.chemistry.results import (EigenstateResult,
                                       ElectronicStructureResult,
                                       VibronicStructureResult)
 from qiskit.chemistry.transformations import Transformation
+from qiskit.aqua.algorithms import Eigensolver as OldEigensolver
+from qiskit.algorithms import Eigensolver
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
 
 from .excited_states_solver import ExcitedStatesSolver
 from .eigensolver_factories import EigensolverFactory
@@ -34,7 +36,8 @@ class ExcitedStatesEigensolver(ExcitedStatesSolver):
     """The calculation of excited states via an Eigensolver algorithm"""
 
     def __init__(self, transformation: Transformation,
-                 solver: Union[Eigensolver, EigensolverFactory]) -> None:
+                 solver: Union[Union[Union[OldEigensolver, Eigensolver],
+                                     EigensolverFactory]]) -> None:
         """
 
         Args:
@@ -45,12 +48,14 @@ class ExcitedStatesEigensolver(ExcitedStatesSolver):
         self._solver = solver
 
     @property
-    def solver(self) -> Union[Eigensolver, EigensolverFactory]:
+    def solver(self) -> Union[Union[OldEigensolver, Eigensolver],
+                              EigensolverFactory]:
         """Returns the minimum eigensolver or factory."""
         return self._solver
 
     @solver.setter
-    def solver(self, solver: Union[Eigensolver, EigensolverFactory]) -> None:
+    def solver(self, solver: Union[Union[OldEigensolver, Eigensolver],
+                                   EigensolverFactory]) -> None:
         """Sets the minimum eigensolver or factory."""
         self._solver = solver
 
@@ -85,7 +90,9 @@ class ExcitedStatesEigensolver(ExcitedStatesSolver):
             structure or bosonic result.
         """
         if aux_operators is not None:
-            if any(not isinstance(op, (WeightedPauliOperator, FermionicOperator))
+            if any(not isinstance(op,
+                                  (OldWeightedPauliOperator,
+                                   WeightedPauliOperator, FermionicOperator))
                    for op in aux_operators):
                 raise NotImplementedError('Currently only fermionic problems are supported.')
 

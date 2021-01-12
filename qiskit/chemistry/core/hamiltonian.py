@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -19,8 +19,14 @@ import logging
 from enum import Enum
 
 import numpy as np
-from qiskit.aqua.algorithms import MinimumEigensolverResult, EigensolverResult
-from qiskit.aqua.operators import Z2Symmetries, WeightedPauliOperator
+
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.aqua.operators import Z2Symmetries as OldZ2Symmetries
+from qiskit.opflow import Z2Symmetries, WeightedPauliOperator, PauliSumOp
+from qiskit.aqua.algorithms import MinimumEigensolverResult as OldMinimumEigensolverResult
+from qiskit.algorithms import MinimumEigensolverResult, EigensolverResult
+from qiskit.aqua.algorithms import EigensolverResult as OldEigensolverResult
+from qiskit.aqua import aqua_globals
 from qiskit.chemistry import QMolecule, QiskitChemistryError
 from qiskit.chemistry.fermionic_operator import FermionicOperator
 from .chemistry_operator import (ChemistryOperator,
@@ -116,8 +122,11 @@ class Hamiltonian(ChemistryOperator):
         self._ph_y_dipole_shift = 0.0
         self._ph_z_dipole_shift = 0.0
 
-    def run(self, qmolecule: QMolecule) -> Tuple[WeightedPauliOperator,
-                                                 List[WeightedPauliOperator]]:
+    def run(self, qmolecule: QMolecule) \
+            -> Tuple[Union[OldWeightedPauliOperator,
+                           PauliSumOp],
+                     List[Union[OldWeightedPauliOperator,
+                                PauliSumOp]]]:
         """ run method"""
         logger.debug('Processing started...')
         # Save these values for later combination with the quantum computation result
@@ -269,23 +278,38 @@ class Hamiltonian(ChemistryOperator):
                                 self._two_qubit_reduction
                                 if self._qubit_mapping == 'parity' else False)
 
-        z2symmetries = Z2Symmetries([], [], [], None)
+        if aqua_globals.deprecated_code:
+            z2symmetries = OldZ2Symmetries([], [], [], None)
+        else:
+            z2symmetries = Z2Symmetries([], [], [], None)
         if self._z2symmetry_reduction is not None:
             logger.debug('Processing z2 symmetries')
             qubit_op, aux_ops, z2symmetries = self._process_z2symmetry_reduction(qubit_op, aux_ops)
         self._add_molecule_info(self.INFO_Z2SYMMETRIES, z2symmetries)
 
         logger.debug('Processing complete ready to run algorithm')
+
+        if not aqua_globals.deprecated_code:
+            if qubit_op is not None:
+                qubit_op = qubit_op.to_opflow()
+            if aux_ops is not None:
+                aux_ops = [o_p.to_opflow() if o_p is not None else o_p for o_p in aux_ops]
+
         return qubit_op, aux_ops
 
     def _process_z2symmetry_reduction(self, qubit_op, aux_ops):
-
-        z2_symmetries = Z2Symmetries.find_Z2_symmetries(qubit_op)
+        if aqua_globals.deprecated_code:
+            z2_symmetries = OldZ2Symmetries.find_Z2_symmetries(qubit_op)
+        else:
+            z2_symmetries = Z2Symmetries.find_Z2_symmetries(qubit_op)
         if z2_symmetries.is_empty():
             logger.debug('No Z2 symmetries found')
             z2_qubit_op = qubit_op
             z2_aux_ops = aux_ops
-            z2_symmetries = Z2Symmetries([], [], [], None)
+            if aqua_globals.deprecated_code:
+                z2_symmetries = OldZ2Symmetries([], [], [], None)
+            else:
+                z2_symmetries = Z2Symmetries([], [], [], None)
         else:
             logger.debug('%s Z2 symmetries found: %s', len(z2_symmetries.symmetries),
                          ','.join([symm.to_label() for symm in z2_symmetries.symmetries]))
@@ -294,7 +318,11 @@ class Hamiltonian(ChemistryOperator):
             logger.debug('Checking operators commute with symmetry:')
             symmetry_ops = []
             for symmetry in z2_symmetries.symmetries:
-                symmetry_ops.append(WeightedPauliOperator(paulis=[[1.0, symmetry]]))
+                if aqua_globals.deprecated_code:
+                    o_p = OldWeightedPauliOperator(paulis=[[1.0, symmetry]])
+                else:
+                    o_p = WeightedPauliOperator(paulis=[[1.0, symmetry]])
+                symmetry_ops.append(o_p)
             commutes = Hamiltonian._check_commutes(symmetry_ops, qubit_op)
             if not commutes:
                 raise QiskitChemistryError('Z2 symmetry failure main operator must commute '
@@ -369,15 +397,19 @@ class Hamiltonian(ChemistryOperator):
 
     # Called by public superclass method process_algorithm_result to complete specific processing
     def _process_algorithm_result(self, algo_result):
-        if isinstance(algo_result, MinimumEigensolverResult):
+        if isinstance(algo_result, (OldMinimumEigensolverResult,
+                                    MinimumEigensolverResult)):
             return self._process_algorithm_result_ground_state(algo_result)
-        elif isinstance(algo_result, EigensolverResult):
+        elif isinstance(algo_result, (OldEigensolverResult, EigensolverResult)):
             return self._process_algorithm_result_deprecated(algo_result)
             # TODO return self._process_algorithm_result_excited_states(algo_result)
         else:
             return self._process_algorithm_result_deprecated(algo_result)
 
-    def _process_algorithm_result_ground_state(self, algo_result: MinimumEigensolverResult) \
+    def _process_algorithm_result_ground_state(
+            self,
+            algo_result: Union[OldMinimumEigensolverResult,
+                               MinimumEigensolverResult]) \
             -> MolecularGroundStateResult:
         mgsr = MolecularGroundStateResult()
         mgsr.algorithm_result = algo_result
@@ -544,7 +576,10 @@ class Hamiltonian(ChemistryOperator):
     def _map_fermionic_operator_to_qubit(fer_op, qubit_mapping, num_particles, two_qubit_reduction):
         qubit_op = fer_op.mapping(map_type=qubit_mapping, threshold=0.00000001)
         if qubit_mapping == 'parity' and two_qubit_reduction:
-            qubit_op = Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
+            if aqua_globals.deprecated_code:
+                qubit_op = OldZ2Symmetries.two_qubit_reduction(qubit_op, num_particles)
+            else:
+                qubit_op = Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
         return qubit_op
 
     @staticmethod

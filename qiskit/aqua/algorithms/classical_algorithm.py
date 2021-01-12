@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -27,6 +27,11 @@ class ClassicalAlgorithm(ABC):
     """
     Base class for Classical Algorithms.
     """
+
+    DEPR_MSG = ('qiskit.aqua.algorithms.{} is deprecated '
+                'as of 0.9.0, and will be '
+                'removed no earlier than 3 months after the release date. '
+                'Please use qiskit.algorithms.{}.')
 
     @property
     def random(self):

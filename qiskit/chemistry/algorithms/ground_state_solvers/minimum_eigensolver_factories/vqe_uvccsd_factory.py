@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -15,15 +15,21 @@
 from typing import Optional, Union, Callable
 import numpy as np
 
-from qiskit.aqua import QuantumInstance
-from qiskit.aqua.algorithms import MinimumEigensolver, VQE
-from qiskit.aqua.operators import ExpectationBase
-from qiskit.aqua.operators.gradients import GradientBase
-from qiskit.aqua.components.optimizers import Optimizer
 from qiskit.chemistry.components.initial_states import VSCF
 from qiskit.chemistry.components.variational_forms import UVCC
 from qiskit.chemistry.transformations import BosonicTransformation
-
+from qiskit.aqua import QuantumInstance as OldQuantumInstance
+from qiskit.utils import QuantumInstance
+from qiskit.aqua.components.optimizers import Optimizer as OldOptimizer
+from qiskit.algorithms.optimizers import Optimizer
+from qiskit.aqua.operators.gradients import GradientBase as OldGradientBase
+from qiskit.opflow import ExpectationBase
+from qiskit.opflow.gradients import GradientBase
+from qiskit.aqua.operators import ExpectationBase as OldExpectationBase
+from qiskit.aqua.algorithms import MinimumEigensolver as OldMinimumEigensolver
+from qiskit.algorithms import MinimumEigensolver, VQE
+from qiskit.aqua.algorithms import VQE as OldVQE
+from qiskit.aqua import aqua_globals
 from .minimum_eigensolver_factory import MinimumEigensolverFactory
 
 
@@ -31,11 +37,16 @@ class VQEUVCCSDFactory(MinimumEigensolverFactory):
     """A factory to construct a VQE minimum eigensolver with UVCCSD ansatz wavefunction."""
 
     def __init__(self,
-                 quantum_instance: QuantumInstance,
-                 optimizer: Optional[Optimizer] = None,
+                 quantum_instance: Union[OldQuantumInstance,
+                                         QuantumInstance],
+                 optimizer: Optional[Union[OldOptimizer,
+                                           Optimizer]] = None,
                  initial_point: Optional[np.ndarray] = None,
-                 gradient: Optional[Union[GradientBase, Callable]] = None,
-                 expectation: Optional[ExpectationBase] = None,
+                 gradient: Optional[Union[Union[OldGradientBase,
+                                                GradientBase],
+                                          Callable]] = None,
+                 expectation: Optional[Union[OldExpectationBase,
+                                             ExpectationBase]] = None,
                  include_custom: bool = False) -> None:
         """
         Args:
@@ -66,22 +77,27 @@ class VQEUVCCSDFactory(MinimumEigensolverFactory):
         self._include_custom = include_custom
 
     @property
-    def quantum_instance(self) -> QuantumInstance:
+    def quantum_instance(self) -> Union[OldQuantumInstance,
+                                        QuantumInstance]:
         """Getter of the quantum instance."""
         return self._quantum_instance
 
     @quantum_instance.setter
-    def quantum_instance(self, q_instance: QuantumInstance) -> None:
+    def quantum_instance(self,
+                         q_instance: Union[OldQuantumInstance,
+                                           QuantumInstance]) -> None:
         """Setter of the quantum instance."""
         self._quantum_instance = q_instance
 
     @property
-    def optimizer(self) -> Optimizer:
+    def optimizer(self) -> Union[OldOptimizer,
+                                 Optimizer]:
         """Getter of the optimizer."""
         return self._optimizer
 
     @optimizer.setter
-    def optimizer(self, optimizer: Optimizer) -> None:
+    def optimizer(self, optimizer: Union[OldOptimizer,
+                                         Optimizer]) -> None:
         """Setter of the optimizer."""
         self._optimizer = optimizer
 
@@ -96,22 +112,29 @@ class VQEUVCCSDFactory(MinimumEigensolverFactory):
         self._initial_point = initial_point
 
     @property
-    def gradient(self) -> Optional[Union[GradientBase, Callable]]:
+    def gradient(self) -> Optional[Union[OldGradientBase,
+                                         GradientBase,
+                                         Callable]]:
         """Getter of the gradient function"""
         return self._gradient
 
     @gradient.setter
-    def gradient(self, gradient: Optional[Union[GradientBase, Callable]]) -> None:
+    def gradient(self,
+                 gradient: Optional[Union[OldGradientBase,
+                                          GradientBase,
+                                          Callable]]) -> None:
         """Setter of the gradient function"""
         self._gradient = gradient
 
     @property
-    def expectation(self) -> ExpectationBase:
+    def expectation(self) -> Union[OldExpectationBase,
+                                   ExpectationBase]:
         """Getter of the expectation."""
         return self._expectation
 
     @expectation.setter
-    def expectation(self, expectation: ExpectationBase) -> None:
+    def expectation(self, expectation: Union[OldExpectationBase,
+                                             ExpectationBase]) -> None:
         """Setter of the expectation."""
         self._expectation = expectation
 
@@ -125,7 +148,10 @@ class VQEUVCCSDFactory(MinimumEigensolverFactory):
         """Setter of the ``include_custom`` setting for the ``expectation`` setting."""
         self._include_custom = include_custom
 
-    def get_solver(self, transformation: BosonicTransformation) -> MinimumEigensolver:
+    def get_solver(self,
+                   transformation: BosonicTransformation) \
+            -> Union[OldMinimumEigensolver,
+                     MinimumEigensolver]:
         """Returns a VQE with a UVCCSD wavefunction ansatz, based on ``transformation``.
         This works only with a ``BosonicTransformation``.
 
@@ -136,7 +162,6 @@ class VQEUVCCSDFactory(MinimumEigensolverFactory):
             A VQE suitable to compute the ground state of the molecule transformed
             by ``transformation``.
         """
-
         basis = transformation.basis
         num_modes = transformation.num_modes
 
@@ -147,14 +172,26 @@ class VQEUVCCSDFactory(MinimumEigensolverFactory):
 
         initial_state = VSCF(basis)
         var_form = UVCC(num_qubits, basis, [0, 1], initial_state=initial_state)
-        vqe = VQE(var_form=var_form,
-                  quantum_instance=self._quantum_instance,
-                  optimizer=self._optimizer,
-                  initial_point=self._initial_point,
-                  gradient=self._gradient,
-                  expectation=self._expectation,
-                  include_custom=self._include_custom)
+        if aqua_globals.deprecated_code:
+            vqe = OldVQE(var_form=var_form,
+                         quantum_instance=self._quantum_instance,
+                         optimizer=self._optimizer,
+                         initial_point=self._initial_point,
+                         gradient=self._gradient,
+                         expectation=self._expectation,
+                         include_custom=self._include_custom)
+        else:
+            vqe = VQE(var_form=var_form,
+                      quantum_instance=self._quantum_instance,
+                      optimizer=self._optimizer,
+                      initial_point=self._initial_point,
+                      gradient=self._gradient,
+                      expectation=self._expectation,
+                      include_custom=self._include_custom)
         return vqe
 
     def supports_aux_operators(self):
-        return VQE.supports_aux_operators()
+        if aqua_globals.deprecated_code:
+            return OldVQE.supports_aux_operators()
+        else:
+            return VQE.supports_aux_operators()

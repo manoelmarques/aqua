@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -15,9 +15,12 @@
 from typing import Optional, Union, List, Callable
 import numpy as np
 
-from qiskit.aqua.algorithms import Eigensolver, NumPyEigensolver
 from qiskit.chemistry.transformations import Transformation
-from qiskit.aqua.utils.validation import validate_min
+from qiskit.utils.validation import validate_min
+from qiskit.aqua.algorithms import Eigensolver as OldEigensolver
+from qiskit.aqua.algorithms import NumPyEigensolver as OldNumPyEigensolver
+from qiskit.algorithms import Eigensolver, NumPyEigensolver
+from qiskit.aqua import aqua_globals
 
 from .eigensolver_factory import EigensolverFactory
 
@@ -80,7 +83,9 @@ class NumPyEigensolverFactory(EigensolverFactory):
         """ sets whether to use the default filter criterion """
         self._use_default_filter_criterion = value
 
-    def get_solver(self, transformation: Transformation) -> Eigensolver:
+    def get_solver(self,
+                   transformation: Transformation) -> Union[OldEigensolver,
+                                                            Eigensolver]:
         """Returns a NumPyEigensolver with the desired filter
 
         Args:
@@ -94,5 +99,8 @@ class NumPyEigensolverFactory(EigensolverFactory):
         if not filter_criterion and self._use_default_filter_criterion:
             filter_criterion = transformation.get_default_filter_criterion()
 
-        npe = NumPyEigensolver(filter_criterion=filter_criterion, k=self.k)
+        if aqua_globals.deprecated_code:
+            npe = OldNumPyEigensolver(filter_criterion=filter_criterion, k=self.k)
+        else:
+            npe = NumPyEigensolver(filter_criterion=filter_criterion, k=self.k)
         return npe

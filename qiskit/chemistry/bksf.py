@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,16 +12,26 @@
 
 """ BKSF methods """
 
+from typing import Union
 import copy
 import itertools
 
 import retworkx
 import numpy as np
 from qiskit.quantum_info import Pauli
-from qiskit.aqua.operators import WeightedPauliOperator
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
+from qiskit.aqua import aqua_globals
+
+# pylint: disable=invalid-name
 
 
-def _one_body(edge_list, p, q, h1_pq):  # pylint: disable=invalid-name
+def _one_body(edge_list,
+              p,
+              q,
+              h1_pq) \
+        -> Union[OldWeightedPauliOperator,
+                 WeightedPauliOperator]:
     """
     Map the term a^\\dagger_p a_q + a^\\dagger_q a_p to qubit operator.
     Args:
@@ -31,7 +41,7 @@ def _one_body(edge_list, p, q, h1_pq):  # pylint: disable=invalid-name
         h1_pq (complex): coefficient of the one body term at (p, q)
 
     Return:
-        WeightedPauliOperator: mapped qubit operator
+        mapped qubit operator
     """
     # Handle off-diagonal terms.
     if p != q:
@@ -49,7 +59,11 @@ def _one_body(edge_list, p, q, h1_pq):  # pylint: disable=invalid-name
         w = np.zeros(edge_list.shape[1])
         id_pauli = Pauli(v, w)
 
-        id_op = WeightedPauliOperator(paulis=[[1.0, id_pauli]])
+        if aqua_globals.deprecated_code:
+            id_op = OldWeightedPauliOperator(paulis=[[1.0, id_pauli]])
+        else:
+            id_op = WeightedPauliOperator(paulis=[[1.0, id_pauli]])
+
         qubit_op = id_op - b_p
         final_coeff = 0.5
 
@@ -58,7 +72,9 @@ def _one_body(edge_list, p, q, h1_pq):  # pylint: disable=invalid-name
     return qubit_op
 
 
-def _two_body(edge_list, p, q, r, s, h2_pqrs):  # pylint: disable=invalid-name
+def _two_body(edge_list, p, q, r, s, h2_pqrs) \
+        -> Union[OldWeightedPauliOperator,
+                 WeightedPauliOperator]:
     """
     Map the term a^\\dagger_p a^\\dagger_q a_r a_s + h.c. to qubit operator.
 
@@ -71,12 +87,16 @@ def _two_body(edge_list, p, q, r, s, h2_pqrs):  # pylint: disable=invalid-name
         h2_pqrs (complex): coefficient of the two body term at (p, q, r, s)
 
     Returns:
-        WeightedPauliOperator: mapped qubit operator
+        mapped qubit operator
     """
     # Handle case of four unique indices.
     v = np.zeros(edge_list.shape[1])
-    id_op = WeightedPauliOperator(paulis=[[1, Pauli(v, v)]])
-    final_coeff = 1.0
+    if aqua_globals.deprecated_code:
+        id_op = OldWeightedPauliOperator(paulis=[[1, Pauli(v, v)]])
+    else:
+        id_op = WeightedPauliOperator(paulis=[[1, Pauli(v, v)]])
+
+    final_coeff: complex = 1.0
 
     if len(set([p, q, r, s])) == 4:
         b_p = edge_operator_bi(edge_list, p)
@@ -121,8 +141,6 @@ def _two_body(edge_list, p, q, r, s, h2_pqrs):  # pylint: disable=invalid-name
             a_pr = -a_pr if r < p else a_pr
             qubit_op = (a_pr * b_r + b_p * a_pr) * (id_op - b_q)
             final_coeff = 1j * 0.25
-        else:
-            pass
 
     # Handle case of two unique indices.
     elif len(set([p, q, r, s])) == 2:
@@ -133,8 +151,6 @@ def _two_body(edge_list, p, q, r, s, h2_pqrs):  # pylint: disable=invalid-name
             final_coeff = 0.25
         else:
             final_coeff = -0.25
-    else:
-        pass
 
     qubit_op = (final_coeff * h2_pqrs) * qubit_op
     qubit_op.simplify()
@@ -200,7 +216,9 @@ def bravyi_kitaev_fast_edge_list(fer_op):
     return edge_list
 
 
-def edge_operator_aij(edge_list, i, j):
+def edge_operator_aij(edge_list, i, j) \
+        -> Union[OldWeightedPauliOperator,
+                 WeightedPauliOperator]:
     """Calculate the edge operator A_ij.
 
     The definitions used here are consistent with arXiv:quant-ph/0003137
@@ -212,7 +230,7 @@ def edge_operator_aij(edge_list, i, j):
         j (int): specifying the edge operator A
 
     Returns:
-        WeightedPauliOperator: qubit operator
+        qubit operator
     """
     v = np.zeros(edge_list.shape[1])
     w = np.zeros(edge_list.shape[1])
@@ -240,11 +258,16 @@ def edge_operator_aij(edge_list, i, j):
         if edge_list[i_i][j_j] < i:
             v[j_j] = 1
 
-    qubit_op = WeightedPauliOperator(paulis=[[1.0, Pauli(v, w)]])
+    if aqua_globals.deprecated_code:
+        qubit_op = OldWeightedPauliOperator(paulis=[[1.0, Pauli(v, w)]])
+    else:
+        qubit_op = WeightedPauliOperator(paulis=[[1.0, Pauli(v, w)]])
     return qubit_op
 
 
-def stabilizers(fer_op):
+def stabilizers(fer_op) \
+        -> Union[OldWeightedPauliOperator,
+                 WeightedPauliOperator]:
     """ stabilizers """
     edge_list = bravyi_kitaev_fast_edge_list(fer_op)
     num_qubits = edge_list.shape[1]
@@ -254,16 +277,24 @@ def stabilizers(fer_op):
     stabs = np.asarray(retworkx.cycle_basis(graph))
     stabilizer_ops = []
     for stab in stabs:
-        a_op = WeightedPauliOperator(paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+        if aqua_globals.deprecated_code:
+            a_op = OldWeightedPauliOperator(
+                paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+        else:
+            a_op = WeightedPauliOperator(
+                paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
         stab = np.asarray(stab)
         for i in range(np.size(stab)):
-            a_op = a_op * edge_operator_aij(edge_list, stab[i], stab[(i + 1) % np.size(stab)]) * 1j
+            a_op = a_op * edge_operator_aij(edge_list,
+                                            stab[i], stab[(i + 1) % np.size(stab)]) * 1j
         stabilizer_ops.append(a_op)
 
     return stabilizer_ops
 
 
-def edge_operator_bi(edge_list, i):
+def edge_operator_bi(edge_list, i) \
+        -> Union[OldWeightedPauliOperator,
+                 WeightedPauliOperator]:
     """Calculate the edge operator B_i.
 
     The definitions used here are consistent with arXiv:quant-ph/0003137
@@ -274,18 +305,23 @@ def edge_operator_bi(edge_list, i):
         i (int): index for specifying the edge operator B.
 
     Returns:
-        WeightedPauliOperator: qubit operator
+        qubit operator
     """
     qubit_position_matrix = np.asarray(np.where(edge_list == i))
     qubit_position = qubit_position_matrix[1]
     v = np.zeros(edge_list.shape[1])
     w = np.zeros(edge_list.shape[1])
     v[qubit_position] = 1
-    qubit_op = WeightedPauliOperator(paulis=[[1.0, Pauli(v, w)]])
+    if aqua_globals.deprecated_code:
+        qubit_op = OldWeightedPauliOperator(paulis=[[1.0, Pauli(v, w)]])
+    else:
+        qubit_op = WeightedPauliOperator(paulis=[[1.0, Pauli(v, w)]])
     return qubit_op
 
 
-def bksf_mapping(fer_op):
+def bksf_mapping(fer_op) \
+        -> Union[OldWeightedPauliOperator,
+                 WeightedPauliOperator]:
     """
     Transform from InteractionOpeator to QubitOperator for Bravyi-Kitaev fast algorithm.
 
@@ -315,14 +351,17 @@ def bksf_mapping(fer_op):
         fer_op (FermionicOperator): the fermionic operator in the second quantized form
 
     Returns:
-        WeightedPauliOperator: mapped qubit operator
+        mapped qubit operator
     """
     fer_op = copy.deepcopy(fer_op)
     # bksf mapping works with the 'physicist' notation.
     fer_op.h2 = np.einsum('ijkm->ikmj', fer_op.h2)
     modes = fer_op.modes
     # Initialize qubit operator as constant.
-    qubit_op = WeightedPauliOperator(paulis=[])
+    if aqua_globals.deprecated_code:
+        qubit_op = OldWeightedPauliOperator(paulis=[])
+    else:
+        qubit_op = WeightedPauliOperator(paulis=[])
     edge_list = bravyi_kitaev_fast_edge_list(fer_op)
     # Loop through all indices.
     for p in range(modes):  # pylint: disable=invalid-name
@@ -349,47 +388,72 @@ def bksf_mapping(fer_op):
                                 continue
                         # Handle case of 3 unique indices
                         elif len(set([p, q, r, s])) == 3:
-                            qubit_op += _two_body(edge_list, p, q, r, s, 0.5 * h2_pqrs)
+                            qubit_op += _two_body(edge_list,
+                                                  p, q,
+                                                  r, s,
+                                                  0.5 * h2_pqrs)
                             continue
                         elif p != r and q < p:
                             continue
 
-                    qubit_op += _two_body(edge_list, p, q, r, s, h2_pqrs)
+                    qubit_op += _two_body(edge_list,
+                                          p, q, r, s,
+                                          h2_pqrs)
 
     qubit_op.simplify()
     return qubit_op
 
 
-def vacuum_operator(fer_op):
+def vacuum_operator(fer_op) \
+        -> Union[OldWeightedPauliOperator,
+                 WeightedPauliOperator]:
     """Use the stabilizers to find the vacuum state in bravyi_kitaev_fast.
 
     Args:
         fer_op (FermionicOperator): the fermionic operator in the second quantized form
 
     Returns:
-        WeightedPauliOperator: the qubit operator
+        the qubit operator
     """
     edge_list = bravyi_kitaev_fast_edge_list(fer_op)
     num_qubits = edge_list.shape[1]
-    vac_operator = WeightedPauliOperator(paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+    if aqua_globals.deprecated_code:
+        vac_operator = OldWeightedPauliOperator(
+            paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+    else:
+        vac_operator = WeightedPauliOperator(
+            paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
 
     graph = retworkx.PyGraph()
     graph.extend_from_edge_list(list(map(tuple, edge_list.transpose())))
     stabs = np.asarray(retworkx.cycle_basis(graph))
     for stab in stabs:
-        a_op = WeightedPauliOperator(paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+        if aqua_globals.deprecated_code:
+            a_op = OldWeightedPauliOperator(
+                paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+        else:
+            a_op = WeightedPauliOperator(
+                paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
         stab = np.asarray(stab)
         for i in range(np.size(stab)):
-            a_op = a_op * edge_operator_aij(edge_list, stab[i], stab[(i + 1) % np.size(stab)]) * 1j
+            a_op = a_op * edge_operator_aij(edge_list, stab[i],
+                                            stab[(i + 1) % np.size(stab)]) * 1j
             # a_op.scaling_coeff(1j)
-        a_op += WeightedPauliOperator(paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+        if aqua_globals.deprecated_code:
+            a_op += OldWeightedPauliOperator(
+                paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+        else:
+            a_op += WeightedPauliOperator(
+                paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
         vac_operator = vac_operator * a_op * np.sqrt(2)
         # vac_operator.scaling_coeff()
 
     return vac_operator
 
 
-def number_operator(fer_op, mode_number=None):
+def number_operator(fer_op, mode_number=None) \
+        -> Union[OldWeightedPauliOperator,
+                 WeightedPauliOperator]:
     """Find the qubit operator for the number operator in bravyi_kitaev_fast representation.
 
     Args:
@@ -397,27 +461,43 @@ def number_operator(fer_op, mode_number=None):
         mode_number (int): index, it corresponds to the mode for which number operator is required.
 
     Returns:
-        WeightedPauliOperator: the qubit operator
+        the qubit operator
     """
     modes = fer_op.h1.modes
     edge_list = bravyi_kitaev_fast_edge_list(fer_op)
     num_qubits = edge_list.shape[1]
-    num_operator = WeightedPauliOperator(paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
-
+    if aqua_globals.deprecated_code:
+        num_operator = OldWeightedPauliOperator(
+            paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+    else:
+        num_operator = WeightedPauliOperator(
+            paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
     if mode_number is None:
         for i in range(modes):
             num_operator -= edge_operator_bi(edge_list, i)
-        num_operator += \
-            WeightedPauliOperator(paulis=[[1.0 * modes, Pauli.from_label('I' * num_qubits)]])
+        if aqua_globals.deprecated_code:
+            o_p = OldWeightedPauliOperator(
+                paulis=[[1.0 * modes, Pauli.from_label('I' * num_qubits)]])
+        else:
+            o_p = WeightedPauliOperator(
+                paulis=[[1.0 * modes, Pauli.from_label('I' * num_qubits)]])
+        num_operator += o_p
     else:
-        num_operator += (WeightedPauliOperator(paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
-                         - edge_operator_bi(edge_list, mode_number))
+        if aqua_globals.deprecated_code:
+            o_p = OldWeightedPauliOperator(
+                paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+        else:
+            o_p = WeightedPauliOperator(
+                paulis=[[1.0, Pauli.from_label('I' * num_qubits)]])
+        num_operator += o_p - edge_operator_bi(edge_list, mode_number)
 
     num_operator = 0.5 * num_operator
     return num_operator
 
 
-def generate_fermions(fer_op, i, j):
+def generate_fermions(fer_op, i, j) \
+        -> Union[OldWeightedPauliOperator,
+                 OldWeightedPauliOperator]:
     """The qubit operator for generating fermions in bravyi_kitaev_fast representation.
 
     Args:
@@ -426,11 +506,13 @@ def generate_fermions(fer_op, i, j):
         j (int): index of fermions
 
     Returns:
-        WeightedPauliOperator: the qubit operator
+        the qubit operator
     """
     edge_list = bravyi_kitaev_fast_edge_list(fer_op)
-    gen_fer_operator = edge_operator_aij(edge_list, i, j) * edge_operator_bi(edge_list, j) \
-        - edge_operator_bi(edge_list, i) * edge_operator_aij(edge_list, i, j)
+    gen_fer_operator = (edge_operator_aij(edge_list, i, j) *
+                        edge_operator_bi(edge_list, j) -
+                        edge_operator_bi(edge_list, i) *
+                        edge_operator_aij(edge_list, i, j))
 
     gen_fer_operator = -0.5j * gen_fer_operator
     return gen_fer_operator

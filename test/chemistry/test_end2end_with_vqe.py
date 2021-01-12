@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -19,9 +19,9 @@ from test.chemistry import QiskitChemistryTestCase
 from ddt import ddt, idata, unpack
 import qiskit
 from qiskit.circuit.library import TwoLocal
-from qiskit.aqua import QuantumInstance
-from qiskit.aqua.algorithms import VQE
-from qiskit.aqua.components.optimizers import COBYLA, SPSA
+from qiskit.utils import QuantumInstance
+from qiskit.algorithms import VQE
+from qiskit.algorithms.optimizers import COBYLA, SPSA
 from qiskit.chemistry.drivers import HDF5Driver
 from qiskit.chemistry.core import Hamiltonian, TransformationType, QubitMappingType
 
@@ -63,9 +63,9 @@ class TestEnd2End(QiskitChemistryTestCase):
             optimizer = SPSA(maxiter=2000)
 
         ryrz = TwoLocal(rotation_blocks=['ry', 'rz'], entanglement_blocks='cz')
-        vqe = VQE(self.qubit_op, ryrz, optimizer, aux_operators=self.aux_ops)
-        quantum_instance = QuantumInstance(backend, shots=shots)
-        result = vqe.run(quantum_instance)
+        q_i = QuantumInstance(backend, shots=shots)
+        vqe = VQE(ryrz, optimizer, quantum_instance=q_i)
+        result = vqe.compute_minimum_eigenvalue(operator=self.qubit_op, aux_operators=self.aux_ops)
         self.assertAlmostEqual(result.eigenvalue.real, self.reference_energy, places=4)
 
     def test_deprecated_algo_result(self):
@@ -73,13 +73,12 @@ class TestEnd2End(QiskitChemistryTestCase):
         try:
             warnings.filterwarnings("ignore", category=DeprecationWarning)
             ryrz = TwoLocal(self.qubit_op.num_qubits, ['ry', 'rz'], 'cz', reps=3)
-            vqe = VQE(self.qubit_op, ryrz, COBYLA(), aux_operators=self.aux_ops)
-            quantum_instance = QuantumInstance(qiskit.BasicAer.get_backend('statevector_simulator'))
-            result = vqe.run(quantum_instance)
-            keys = {'energy', 'energies', 'eigvals', 'eigvecs', 'aux_ops'}
-            dict_res = {key: result[key] for key in keys}
-            lines, result = self.core.process_algorithm_result(dict_res)
-            self.assertAlmostEqual(result['energy'], -1.137306, places=4)
+            q_i = QuantumInstance(qiskit.BasicAer.get_backend('statevector_simulator'))
+            vqe = VQE(ryrz, COBYLA(), quantum_instance=q_i)
+            result = vqe.compute_minimum_eigenvalue(operator=self.qubit_op,
+                                                    aux_operators=self.aux_ops)
+            lines, result = self.core.process_algorithm_result(result)
+            self.assertAlmostEqual(result.energy, -1.137306, places=4)
             self.assertEqual(len(lines), 19)
             self.assertEqual(lines[8], '  Measured:: Num particles: 2.000, S: 0.000, M: 0.00000')
         finally:

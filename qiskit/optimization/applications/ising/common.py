@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -17,7 +17,8 @@ from collections import OrderedDict
 import numpy as np
 
 from qiskit.aqua import aqua_globals
-from qiskit.aqua.operators import StateFn
+from qiskit.aqua.operators import StateFn as OldStateFn
+from qiskit.opflow import StateFn
 
 
 def random_graph(n, weight_range=10, edge_prob=0.3, negative_weight=True,
@@ -156,7 +157,7 @@ def sample_most_likely(state_vector):
         binary_string = sorted(state_vector.items(), key=lambda kv: kv[1])[-1][0]
         x = np.asarray([int(y) for y in reversed(list(binary_string))])
         return x
-    elif isinstance(state_vector, StateFn):
+    elif isinstance(state_vector, (OldStateFn, StateFn)):
         binary_string = list(state_vector.sample().keys())[0]
         x = np.asarray([int(y) for y in reversed(list(binary_string))])
         return x

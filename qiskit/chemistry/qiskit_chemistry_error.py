@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,9 +12,9 @@
 
 """Chemistry Exception."""
 
-from qiskit.aqua.aqua_error import AquaError
+from qiskit.exceptions import QiskitError
 
 
-class QiskitChemistryError(AquaError):
+class QiskitChemistryError(QiskitError):
     """Class for errors returned by Qiskit's Chemistry module."""
     pass

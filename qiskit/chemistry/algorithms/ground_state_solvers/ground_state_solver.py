@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,12 +16,14 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
 
 import numpy as np
-
 from qiskit import QuantumCircuit
 from qiskit.circuit import Instruction
 from qiskit.quantum_info import Statevector
 from qiskit.result import Result
-from qiskit.aqua.operators import OperatorBase, WeightedPauliOperator
+from qiskit.aqua.operators import OperatorBase as OldOperatorBase
+from qiskit.opflow import OperatorBase
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
 from ...fermionic_operator import FermionicOperator
 from ...bosonic_operator import BosonicOperator
 from ...drivers.base_driver import BaseDriver
@@ -86,8 +88,13 @@ class GroundStateSolver(ABC):
                            state: Union[str, dict, Result,
                                         list, np.ndarray, Statevector,
                                         QuantumCircuit, Instruction,
+                                        OldOperatorBase,
                                         OperatorBase],
-                           operators: Union[WeightedPauliOperator, OperatorBase, list, dict]
+                           operators:
+                           Union[OldWeightedPauliOperator,
+                                 WeightedPauliOperator,
+                                 OldOperatorBase,
+                                 OperatorBase, list, dict]
                            ) -> Union[float, List[float], Dict[str, List[float]]]:
         """Evaluates additional operators at the given state.
 

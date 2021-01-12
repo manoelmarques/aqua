@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -14,7 +14,7 @@
 
 import warnings
 import unittest
-from test.chemistry import QiskitChemistryTestCase
+from test.chemistry.deprecated import QiskitChemistryDeprecatedTestCase
 
 from qiskit.aqua import aqua_globals
 from qiskit.aqua.components.optimizers import L_BFGS_B
@@ -28,7 +28,7 @@ from qiskit.chemistry.drivers import PySCFDriver, UnitsType
 from qiskit.chemistry import QiskitChemistryError
 
 
-class TestVQEAdaptUCCSD(QiskitChemistryTestCase):
+class TestVQEAdaptUCCSD(QiskitChemistryDeprecatedTestCase):
     """ Test Adaptive VQE with UCCSD"""
 
     def setUp(self):

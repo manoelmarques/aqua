@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,6 +12,7 @@
 
 """ Fermionic Operator """
 
+from typing import Union
 import itertools
 import logging
 import sys
@@ -20,9 +21,10 @@ import numpy as np
 from qiskit.quantum_info import Pauli
 from qiskit.tools import parallel_map
 from qiskit.tools.events import TextProgressBar
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
 
 from qiskit.aqua import aqua_globals
-from qiskit.aqua.operators import WeightedPauliOperator
 from .qiskit_chemistry_error import QiskitChemistryError
 from .bksf import bksf_mapping
 from .particle_hole import particle_hole_transformation
@@ -50,7 +52,8 @@ class FermionicOperator:
 
     """
 
-    def __init__(self, h1, h2=None, ph_trans_shift=None):
+    def __init__(self, h1, h2=None,
+                 ph_trans_shift=None):
         """
         This class requires the integrals stored in the '*chemist*' notation
 
@@ -78,6 +81,7 @@ class FermionicOperator:
                                 a 4-D (NxNxNxN) tensor
             ph_trans_shift (float): energy shift caused by particle hole transformation
         """
+
         self._h1 = h1
         if h2 is None:
             h2 = np.zeros((h1.shape[0], h1.shape[0], h1.shape[0], h1.shape[0]), dtype=h1.dtype)
@@ -381,7 +385,10 @@ class FermionicOperator:
         # ###########    BUILDING THE MAPPED HAMILTONIAN     ################
         # ###################################################################
 
-        pauli_list = WeightedPauliOperator(paulis=[])
+        if aqua_globals.deprecated_code:
+            pauli_list = OldWeightedPauliOperator(paulis=[])
+        else:
+            pauli_list = WeightedPauliOperator(paulis=[])
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("Mapping one-body terms to Qubit Hamiltonian:")
             TextProgressBar(output_handler=sys.stderr)
@@ -389,7 +396,8 @@ class FermionicOperator:
                                [(self._h1[i, j], a_list[i], a_list[j])
                                 for i, j in itertools.product(range(n), repeat=2)
                                 if self._h1[i, j] != 0],
-                               task_args=(threshold,), num_processes=aqua_globals.num_processes)
+                               task_args=(threshold,),
+                               num_processes=aqua_globals.num_processes)
         for result in results:
             pauli_list += result
         pauli_list.chop(threshold=threshold)
@@ -401,19 +409,26 @@ class FermionicOperator:
                                [(self._h2[i, j, k, m], a_list[i], a_list[j], a_list[k], a_list[m])
                                 for i, j, k, m in itertools.product(range(n), repeat=4)
                                 if self._h2[i, j, k, m] != 0],
-                               task_args=(threshold,), num_processes=aqua_globals.num_processes)
+                               task_args=(threshold,),
+                               num_processes=aqua_globals.num_processes)
         for result in results:
             pauli_list += result
         pauli_list.chop(threshold=threshold)
 
         if self._ph_trans_shift is not None:
             pauli_term = [self._ph_trans_shift, Pauli.from_label('I' * self._modes)]
-            pauli_list += WeightedPauliOperator(paulis=[pauli_term])
+            if aqua_globals.deprecated_code:
+                o_p = OldWeightedPauliOperator(paulis=[pauli_term])
+            else:
+                o_p = WeightedPauliOperator(paulis=[pauli_term])
+            pauli_list += o_p
 
         return pauli_list
 
     @staticmethod
-    def _one_body_mapping(h1_ij_aij, threshold):
+    def _one_body_mapping(h1_ij_aij, threshold) \
+        -> Union[OldWeightedPauliOperator,
+                 WeightedPauliOperator]:
         """
         Subroutine for one body mapping.
 
@@ -422,7 +437,7 @@ class FermionicOperator:
             threshold (float): threshold to remove a pauli
 
         Returns:
-            WeightedPauliOperator: Operator for those paulis
+            Operator for those paulis
         """
         h1_ij, a_i, a_j = h1_ij_aij
         pauli_list = []
@@ -433,10 +448,15 @@ class FermionicOperator:
                 pauli_term = [coeff, pauli_prod[0]]
                 if np.absolute(pauli_term[0]) > threshold:
                     pauli_list.append(pauli_term)
-        return WeightedPauliOperator(paulis=pauli_list)
+        if aqua_globals.deprecated_code:
+            return OldWeightedPauliOperator(paulis=pauli_list)
+        else:
+            return WeightedPauliOperator(paulis=pauli_list)
 
     @staticmethod
-    def _two_body_mapping(h2_ijkm_a_ijkm, threshold):
+    def _two_body_mapping(h2_ijkm_a_ijkm, threshold) \
+            -> Union[OldWeightedPauliOperator,
+                     WeightedPauliOperator]:
         """
         Subroutine for two body mapping. We use the chemists notation
         for the two-body term, h2(i,j,k,m) adag_i adag_k a_m a_j.
@@ -448,7 +468,7 @@ class FermionicOperator:
             threshold (float): threshold to remove a pauli
 
         Returns:
-            WeightedPauliOperator: Operator for those paulis
+            Operator for those paulis
         """
         h2_ijkm, a_i, a_j, a_k, a_m = h2_ijkm_a_ijkm
         pauli_list = []
@@ -465,7 +485,10 @@ class FermionicOperator:
                         pauli_term = [h2_ijkm / 16 * phase1 * phase2, pauli_prod_3[0]]
                         if np.absolute(pauli_term[0]) > threshold:
                             pauli_list.append(pauli_term)
-        return WeightedPauliOperator(paulis=pauli_list)
+        if aqua_globals.deprecated_code:
+            return OldWeightedPauliOperator(paulis=pauli_list)
+        else:
+            return WeightedPauliOperator(paulis=pauli_list)
 
     def _convert_to_interleaved_spins(self):
         """

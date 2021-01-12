@@ -17,6 +17,7 @@ on:
     branches:
       - master
       - 'stable/**'
+      - deprecate
   pull_request:
     branches:
       - master

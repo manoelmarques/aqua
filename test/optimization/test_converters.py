@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,9 +18,9 @@ from test.optimization.optimization_test_case import QiskitOptimizationTestCase
 
 import numpy as np
 from docplex.mp.model import Model
-from qiskit.aqua import MissingOptionalLibraryError
-from qiskit.aqua.algorithms import NumPyMinimumEigensolver
-from qiskit.aqua.operators import Z, I
+from qiskit.exceptions import MissingOptionalLibraryError
+from qiskit.algorithms import NumPyMinimumEigensolver
+from qiskit.opflow import Z, I
 from qiskit.optimization import QuadraticProgram, QiskitOptimizationError
 from qiskit.optimization.algorithms import MinimumEigenOptimizer, CplexOptimizer, ADMMOptimizer
 from qiskit.optimization.algorithms.admm_optimizer import ADMMParameters
@@ -460,7 +460,7 @@ class TestConverters(QiskitOptimizationTestCase):
             solver = ADMMOptimizer(
                 qubo_optimizer=qubo_optimizer,
                 continuous_optimizer=continuous_optimizer,
-                params=admm_params,
+                params=admm_params
             )
             result = solver.solve(op)
             new_x = converter.interpret(result.x)

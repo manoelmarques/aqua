@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -20,8 +20,14 @@ from qiskit import QuantumCircuit
 from qiskit.circuit import Instruction
 from qiskit.quantum_info import Statevector
 from qiskit.result import Result
-from qiskit.aqua.algorithms import MinimumEigensolver
-from qiskit.aqua.operators import OperatorBase, WeightedPauliOperator, StateFn, CircuitSampler
+from qiskit.aqua.algorithms import MinimumEigensolver as OldMinimumEigensolver
+from qiskit.algorithms import MinimumEigensolver
+from qiskit.aqua.operators import OperatorBase as OldOperatorBase
+from qiskit.opflow import OperatorBase, WeightedPauliOperator, StateFn, CircuitSampler
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.aqua.operators import StateFn as OldStateFn
+from qiskit.aqua.operators import CircuitSampler as OldCircuitSampler
+from qiskit.aqua import aqua_globals
 from ...fermionic_operator import FermionicOperator
 from ...bosonic_operator import BosonicOperator
 from ...drivers.base_driver import BaseDriver
@@ -37,7 +43,9 @@ class GroundStateEigensolver(GroundStateSolver):
     """Ground state computation using a minimum eigensolver."""
 
     def __init__(self, transformation: Transformation,
-                 solver: Union[MinimumEigensolver, MinimumEigensolverFactory]) -> None:
+                 solver: Union[Union[OldMinimumEigensolver,
+                                     MinimumEigensolver],
+                               MinimumEigensolverFactory]) -> None:
         """
 
         Args:
@@ -48,12 +56,16 @@ class GroundStateEigensolver(GroundStateSolver):
         self._solver = solver
 
     @property
-    def solver(self) -> Union[MinimumEigensolver, MinimumEigensolverFactory]:
+    def solver(self) -> Union[Union[OldMinimumEigensolver,
+                                    MinimumEigensolver],
+                              MinimumEigensolverFactory]:
         """Returns the minimum eigensolver or factory."""
         return self._solver
 
     @solver.setter
-    def solver(self, solver: Union[MinimumEigensolver, MinimumEigensolverFactory]) -> None:
+    def solver(self, solver: Union[Union[OldMinimumEigensolver,
+                                         MinimumEigensolver],
+                                   MinimumEigensolverFactory]) -> None:
         """Sets the minimum eigensolver or factory."""
         self._solver = solver
 
@@ -108,8 +120,12 @@ class GroundStateEigensolver(GroundStateSolver):
                            state: Union[str, dict, Result,
                                         list, np.ndarray, Statevector,
                                         QuantumCircuit, Instruction,
+                                        OldOperatorBase,
                                         OperatorBase],
-                           operators: Union[WeightedPauliOperator, OperatorBase, list, dict]
+                           operators: Union[OldWeightedPauliOperator,
+                                            WeightedPauliOperator,
+                                            OldOperatorBase,
+                                            OperatorBase, list, dict]
                            ) -> Union[float, List[float], Dict[str, List[float]]]:
         """Evaluates additional operators at the given state.
 
@@ -126,8 +142,11 @@ class GroundStateEigensolver(GroundStateSolver):
         # try to get a QuantumInstance from the solver
         quantum_instance = getattr(self._solver, 'quantum_instance', None)
 
-        if not isinstance(state, StateFn):
-            state = StateFn(state)
+        if not isinstance(state, (OldStateFn, StateFn)):
+            if aqua_globals.deprecated_code:
+                state = OldStateFn(state)
+            else:
+                state = StateFn(state)
 
         # handle all possible formats of operators
         # i.e. if a user gives us a dict of operators, we return the results equivalently, etc.
@@ -145,7 +164,7 @@ class GroundStateEigensolver(GroundStateSolver):
         return results
 
     def _eval_op(self, state, op, quantum_instance):
-        if isinstance(op, WeightedPauliOperator):
+        if isinstance(op, (OldWeightedPauliOperator, WeightedPauliOperator)):
             op = op.to_opflow()
 
         # if the operator is empty we simply return 0
@@ -154,11 +173,17 @@ class GroundStateEigensolver(GroundStateSolver):
             # See also: VQE._eval_aux_ops()
             return [0.j]
 
-        exp = ~StateFn(op) @ state  # <state|op|state>
+        if aqua_globals.deprecated_code:
+            exp = ~OldStateFn(op) @ state  # <state|op|state>
+        else:
+            exp = ~StateFn(op) @ state  # <state|op|state>
 
         if quantum_instance is not None:
             try:
-                sampler = CircuitSampler(quantum_instance)
+                if aqua_globals.deprecated_code:
+                    sampler = OldCircuitSampler(quantum_instance)
+                else:
+                    sampler = CircuitSampler(quantum_instance)
                 result = sampler.convert(exp).eval()
             except ValueError:
                 # TODO make this cleaner. The reason for it being here is that some quantum

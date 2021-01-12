@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,7 +16,7 @@ import unittest
 from test.chemistry import QiskitChemistryTestCase
 import numpy as np
 from qiskit.quantum_info import Pauli
-from qiskit.aqua.operators import WeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
 from qiskit.chemistry.bksf import edge_operator_aij, edge_operator_bi
 
 

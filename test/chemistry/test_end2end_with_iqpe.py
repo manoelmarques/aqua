@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -17,10 +17,11 @@ from test.chemistry import QiskitChemistryTestCase
 import numpy as np
 from ddt import ddt, idata, unpack
 import qiskit
+from qiskit.utils import QuantumInstance
 from qiskit.aqua.utils import decimal_to_binary
-from qiskit.aqua import QuantumInstance
-from qiskit.aqua.algorithms import IQPE, NumPyMinimumEigensolver
-from qiskit.aqua.operators import Z2Symmetries
+from qiskit.algorithms import NumPyMinimumEigensolver
+from qiskit.aqua.algorithms import IQPE
+from qiskit.opflow import Z2Symmetries
 from qiskit.chemistry.drivers import PySCFDriver, UnitsType
 from qiskit.chemistry import FermionicOperator, QiskitChemistryError
 from qiskit.chemistry.circuit.library import HartreeFock
@@ -55,8 +56,8 @@ class TestIQPE(QiskitChemistryTestCase):
         qubit_op = fer_op.mapping(map_type=qubit_mapping, threshold=1e-10)
         qubit_op = Z2Symmetries.two_qubit_reduction(qubit_op, 2)
 
-        exact_eigensolver = NumPyMinimumEigensolver(qubit_op)
-        results = exact_eigensolver.run()
+        exact_eigensolver = NumPyMinimumEigensolver()
+        results = exact_eigensolver.compute_minimum_eigenvalue(operator=qubit_op)
         reference_energy = results.eigenvalue.real
         self.log.debug('The exact ground state energy is: %s', results.eigenvalue.real)
 

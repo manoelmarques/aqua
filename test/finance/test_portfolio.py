@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -20,9 +20,9 @@ import numpy as np
 
 
 from qiskit import BasicAer
-from qiskit.aqua import aqua_globals, QuantumInstance
-from qiskit.aqua.algorithms import NumPyMinimumEigensolver, QAOA
-from qiskit.aqua.components.optimizers import COBYLA
+from qiskit.utils import aqua_globals, QuantumInstance
+from qiskit.algorithms import NumPyMinimumEigensolver, QAOA
+from qiskit.algorithms.optimizers import COBYLA
 from qiskit.finance.applications.ising import portfolio
 from qiskit.finance.data_providers import RandomDataProvider
 from qiskit.optimization.applications.ising.common import sample_most_likely
@@ -50,12 +50,14 @@ class TestPortfolio(QiskitFinanceTestCase):
         self.budget = int(num_assets / 2)
         self.penalty = num_assets
         self.qubit_op, self.offset = portfolio.get_operator(
-            self.muu, self.sigma, self.risk, self.budget, self.penalty)
+            self.muu, self.sigma,
+            self.risk, self.budget, self.penalty)
+        print(self.qubit_op.__class__)
 
     def test_portfolio(self):
         """ portfolio test """
-        algo = NumPyMinimumEigensolver(self.qubit_op)
-        result = algo.run()
+        algo = NumPyMinimumEigensolver()
+        result = algo.compute_minimum_eigenvalue(operator=self.qubit_op)
         selection = sample_most_likely(result.eigenstate)
         value = portfolio.portfolio_value(
             selection, self.muu, self.sigma, self.risk, self.budget, self.penalty)
@@ -64,15 +66,14 @@ class TestPortfolio(QiskitFinanceTestCase):
 
     def test_portfolio_qaoa(self):
         """ portfolio test with QAOA """
-        qaoa = QAOA(self.qubit_op,
-                    COBYLA(maxiter=500),
-                    initial_point=[0., 0.])
-
         backend = BasicAer.get_backend('statevector_simulator')
         quantum_instance = QuantumInstance(backend=backend,
                                            seed_simulator=self.seed,
                                            seed_transpiler=self.seed)
-        result = qaoa.run(quantum_instance)
+        qaoa = QAOA(optimizer=COBYLA(maxiter=500),
+                    initial_point=[0., 0.],
+                    quantum_instance=quantum_instance)
+        result = qaoa.compute_minimum_eigenvalue(operator=self.qubit_op)
         selection = sample_most_likely(result.eigenstate)
         value = portfolio.portfolio_value(
             selection, self.muu, self.sigma, self.risk, self.budget, self.penalty)

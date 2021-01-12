@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,7 +18,7 @@ from typing import Optional, List, Dict, Union
 import numpy as np
 from sklearn import linear_model
 from sklearn.decomposition import PCA, KernelPCA
-from qiskit.aqua import AquaError
+from qiskit.chemistry import QiskitChemistryError
 
 
 class Extrapolator(ABC):
@@ -87,7 +87,7 @@ class Extrapolator(ABC):
             A newly created extrapolator instance.
 
         Raises:
-            AquaError: if specified mode is unknown.
+            QiskitChemistryError: if specified mode is unknown.
         """
         if mode == 'window':
             return WindowExtrapolator(**kwargs)
@@ -100,7 +100,7 @@ class Extrapolator(ABC):
         elif mode == 'l1':
             return SieveExtrapolator(**kwargs)
         else:
-            raise AquaError('No extrapolator called {}'.format(mode))
+            raise QiskitChemistryError('No extrapolator called {}'.format(mode))
 
 
 class PolynomialExtrapolator(Extrapolator):
@@ -337,7 +337,7 @@ class PCAExtrapolator(Extrapolator):
             window: Number of previous points to use for extrapolation.
 
         Raises:
-            AquaError: if kernel is not defined in sklearn module.
+            QiskitChemistryError: if kernel is not defined in sklearn module.
         """
         self._extrapolator = WindowExtrapolator(extrapolator=extrapolator, window=window)
         self._kernel = kernel
@@ -346,7 +346,7 @@ class PCAExtrapolator(Extrapolator):
         elif self._kernel in ['linear', 'poly', 'rbf', 'sigmoid', 'cosine']:
             self._pca_model = KernelPCA(kernel=self._kernel, fit_inverse_transform=True)
         else:
-            raise AquaError('PCA kernel type {} not found'.format(self._kernel))
+            raise QiskitChemistryError('PCA kernel type {} not found'.format(self._kernel))
 
     def extrapolate(self, points: List[float], param_dict: Optional[Dict[float, List[float]]]) \
             -> Dict[float, List[float]]:

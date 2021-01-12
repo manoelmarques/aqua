@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -13,15 +13,15 @@
 """Tests of BOPES Sampler."""
 
 import unittest
+from test.chemistry import QiskitChemistryTestCase
 from functools import partial
 
 import numpy as np
 from qiskit import BasicAer
-from qiskit.aqua import QuantumInstance
-from qiskit.aqua import aqua_globals
-from qiskit.aqua.algorithms import VQE, NumPyMinimumEigensolver
-from qiskit.aqua.components.optimizers import AQGD
-from qiskit.aqua.operators import PauliExpectation
+from qiskit.utils import QuantumInstance, aqua_globals
+from qiskit.algorithms import VQE, NumPyMinimumEigensolver
+from qiskit.algorithms.optimizers import AQGD
+from qiskit.opflow import PauliExpectation
 from qiskit.chemistry.algorithms.pes_samplers.bopes_sampler import BOPESSampler
 from qiskit.chemistry.circuit.library import HartreeFock
 from qiskit.chemistry.drivers import Molecule, PySCFDriver
@@ -31,7 +31,7 @@ from qiskit.chemistry.transformations import FermionicTransformation
 from qiskit.circuit.library import RealAmplitudes
 
 
-class TestBOPES(unittest.TestCase):
+class TestBOPES(QiskitChemistryTestCase):
     """Tests of BOPES Sampler."""
 
     def test_h2_bopes_sampler(self):

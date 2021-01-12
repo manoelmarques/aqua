@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -13,6 +13,7 @@
 """Shor's factoring algorithm."""
 
 from typing import Optional, Union, Tuple, List
+import warnings
 import math
 import array
 import fractions
@@ -65,6 +66,9 @@ class Shor(QuantumAlgorithm):
          Raises:
             ValueError: Invalid input
         """
+        warnings.warn(
+            QuantumAlgorithm.DEPR_MSG.format('Shor', 'Shor'),
+            DeprecationWarning)
         validate_min('N', N, 3)
         validate_min('a', a, 2)
         super().__init__(quantum_instance)

@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -14,12 +14,14 @@
 Convert portfolio optimization instances into Pauli list
 """
 
+from typing import Tuple, Union
 import numpy as np
 from sklearn.datasets import make_spd_matrix
-from qiskit.quantum_info import Pauli
 
+from qiskit.quantum_info import Pauli
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import PauliSumOp
 from qiskit.aqua import aqua_globals
-from qiskit.aqua.operators import WeightedPauliOperator
 
 
 def random_model(n, seed=None):
@@ -45,8 +47,16 @@ def random_model(n, seed=None):
 
     return m_u, sigma
 
+# pylint: disable=invalid-name
 
-def get_operator(mu, sigma, q, budget, penalty):  # pylint: disable=invalid-name
+
+def get_operator(mu,
+                 sigma,
+                 q,
+                 budget,
+                 penalty) \
+        -> Tuple[Union[OldWeightedPauliOperator,
+                       PauliSumOp], float]:
     """ get qubit op """
     # pylint: disable=invalid-name
     # get problem dimension
@@ -79,9 +89,14 @@ def get_operator(mu, sigma, q, budget, penalty):  # pylint: disable=invalid-name
                 zp[i_] = True
                 zp[j_] = True
                 pauli_list.append([2 * sigma_z[i_, j_], Pauli(zp, xp)])
+
         offset += sigma_z[i_, i_]
 
-    return WeightedPauliOperator(paulis=pauli_list), offset
+    if aqua_globals.deprecated_code:
+        return OldWeightedPauliOperator(paulis=pauli_list), offset
+    else:
+        opflow_list = [(pauli[1].to_label(), pauli[0]) for pauli in pauli_list]
+        return PauliSumOp.from_list(opflow_list), offset
 
 
 def portfolio_value(x, mu, sigma, q, budget, penalty):  # pylint: disable=invalid-name

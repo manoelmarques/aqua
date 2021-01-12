@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -13,6 +13,7 @@
 """Optimizer interface"""
 
 from enum import IntEnum
+import warnings
 import logging
 from abc import ABC, abstractmethod
 import numpy as np
@@ -43,6 +44,12 @@ class Optimizer(ABC):
         self._initial_point_support_level = self.get_support_level()['initial_point']
         self._options = {}
         self._max_evals_grouped = 1
+        warnings.warn(
+            'The qiskit.aqua.algorithms.components.optimizers package is deprecated '
+            'as of 0.9.0, and will be '
+            'removed no earlier than 3 months after the release date. '
+            'Please use qiskit.algorithms.optimizers package.',
+            DeprecationWarning)
 
     @abstractmethod
     def get_support_level(self):

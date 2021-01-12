@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,8 +12,10 @@
 
 """ Eigen Solvers Package """
 
-from .q_eom_vqe import QEomVQE
-from .q_eom_ee import QEomEE
+from .q_eom_vqe import QEomVQE, QEomVQEResult
+from .q_eom_ee import QEomEE, QEomEEResult
 
 __all__ = ['QEomVQE',
-           'QEomEE']
+           'QEomVQEResult',
+           'QEomEE',
+           'QEomEEResult']

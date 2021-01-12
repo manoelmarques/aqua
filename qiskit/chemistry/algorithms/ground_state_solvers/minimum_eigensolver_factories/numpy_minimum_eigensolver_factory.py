@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -15,7 +15,10 @@
 from typing import Optional, Union, List, Callable
 import numpy as np
 
-from qiskit.aqua.algorithms import MinimumEigensolver, NumPyMinimumEigensolver
+from qiskit.aqua.algorithms import MinimumEigensolver as OldMinimumEigensolver
+from qiskit.algorithms import MinimumEigensolver, NumPyMinimumEigensolver
+from qiskit.aqua.algorithms import NumPyMinimumEigensolver as OldNumPyMinimumEigensolver
+from qiskit.aqua import aqua_globals
 from ....transformations.transformation import Transformation
 from .minimum_eigensolver_factory import MinimumEigensolverFactory
 
@@ -63,7 +66,10 @@ class NumPyMinimumEigensolverFactory(MinimumEigensolverFactory):
         """ sets whether to use the default filter criterion """
         self._use_default_filter_criterion = value
 
-    def get_solver(self, transformation: Transformation) -> MinimumEigensolver:
+    def get_solver(self,
+                   transformation: Transformation) \
+            -> Union[OldMinimumEigensolver,
+                     MinimumEigensolver]:
         """Returns a NumPyMinimumEigensolver which possibly uses the default filter criterion
         provided by the ``transformation``.
 
@@ -78,8 +84,14 @@ class NumPyMinimumEigensolverFactory(MinimumEigensolverFactory):
         if not filter_criterion and self._use_default_filter_criterion:
             filter_criterion = transformation.get_default_filter_criterion()
 
-        npme = NumPyMinimumEigensolver(filter_criterion=filter_criterion)
+        if aqua_globals.deprecated_code:
+            npme = OldNumPyMinimumEigensolver(filter_criterion=filter_criterion)
+        else:
+            npme = NumPyMinimumEigensolver(filter_criterion=filter_criterion)
         return npme
 
     def supports_aux_operators(self):
-        return NumPyMinimumEigensolver.supports_aux_operators()
+        if aqua_globals.deprecated_code:
+            return OldNumPyMinimumEigensolver.supports_aux_operators()
+        else:
+            return NumPyMinimumEigensolver.supports_aux_operators()

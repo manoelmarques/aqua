@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,7 +18,7 @@ from test.chemistry import QiskitChemistryTestCase
 from qiskit.chemistry.core import TransformationType, QubitMappingType
 from qiskit.chemistry.transformations import FermionicTransformation
 from qiskit.chemistry.algorithms.ground_state_solvers import GroundStateEigensolver
-from qiskit.aqua.algorithms import NumPyMinimumEigensolver
+from qiskit.algorithms import NumPyMinimumEigensolver
 
 
 class TestDriverMethods(QiskitChemistryTestCase):

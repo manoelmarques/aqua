@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -17,10 +17,10 @@ from test.chemistry import QiskitChemistryTestCase
 from qiskit.chemistry.drivers import HDF5Driver
 from qiskit.providers.basicaer import BasicAer
 from qiskit.circuit.library import RealAmplitudes
-from qiskit.aqua import QuantumInstance
-from qiskit.aqua import AquaError
-from qiskit.aqua.algorithms import VQE
-from qiskit.aqua.components.optimizers import COBYLA
+from qiskit.utils import QuantumInstance
+from qiskit.algorithms import VQE
+from qiskit.algorithms.optimizers import COBYLA
+from qiskit.chemistry import QiskitChemistryError
 from qiskit.chemistry.algorithms.ground_state_solvers import OrbitalOptimizationVQE
 from qiskit.chemistry.transformations import FermionicTransformation
 from qiskit.chemistry.transformations.fermionic_transformation import FermionicQubitMappingType
@@ -151,7 +151,7 @@ class TestOOVQE(QiskitChemistryTestCase):
 
         calc = OrbitalOptimizationVQE(self.transformation1, solver, iterative_oo=False)
 
-        with self.assertRaises(AquaError):
+        with self.assertRaises(QiskitChemistryError):
             calc.solve(self.driver3)
 
     def test_oovqe_with_vqe_uccsd(self):

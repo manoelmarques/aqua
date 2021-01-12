@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,7 +16,7 @@ import unittest
 
 from test.chemistry import QiskitChemistryTestCase
 from ddt import ddt, idata, unpack
-from qiskit.aqua.algorithms import NumPyMinimumEigensolver
+from qiskit.algorithms import NumPyMinimumEigensolver
 from qiskit.chemistry import FermionicOperator, QiskitChemistryError
 from qiskit.chemistry.drivers import PySCFDriver, UnitsType, HFMethodType
 
@@ -72,10 +72,10 @@ class TestParticleHole(QiskitChemistryTestCase):
 
         # Energy in original fer_op should same as ph transformed one added with ph_shift
         jw_op = fer_op.mapping('jordan_wigner')
-        result = NumPyMinimumEigensolver(jw_op).run()
+        result = NumPyMinimumEigensolver().compute_minimum_eigenvalue(operator=jw_op)
 
         ph_jw_op = ph_fer_op.mapping('jordan_wigner')
-        ph_result = NumPyMinimumEigensolver(ph_jw_op).run()
+        ph_result = NumPyMinimumEigensolver().compute_minimum_eigenvalue(operator=ph_jw_op)
 
         self.assertAlmostEqual(result.eigenvalue.real,
                                ph_result.eigenvalue.real - ph_shift, msg=config)

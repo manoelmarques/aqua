@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,7 +16,8 @@ ad hoc dataset
 
 import numpy as np
 import scipy
-from qiskit.aqua import aqua_globals, MissingOptionalLibraryError
+from qiskit.utils import aqua_globals
+from qiskit.exceptions import MissingOptionalLibraryError
 
 
 def ad_hoc_data(training_size, test_size, n, gap, plot_data=False):

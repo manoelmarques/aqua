@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -24,11 +24,11 @@ from qiskit import BasicAer, QuantumCircuit, execute
 from qiskit.circuit import Parameter
 from qiskit.optimization.applications.ising import max_cut
 from qiskit.optimization.applications.ising.common import sample_most_likely
-from qiskit.aqua.components.optimizers import COBYLA, NELDER_MEAD
+from qiskit.algorithms.optimizers import COBYLA, NELDER_MEAD
 from qiskit.aqua.components.initial_states import Custom, Zero
-from qiskit.aqua.algorithms import QAOA
-from qiskit.aqua import QuantumInstance, aqua_globals
-from qiskit.aqua.operators import X, I
+from qiskit.algorithms import QAOA
+from qiskit.utils import QuantumInstance, aqua_globals
+from qiskit.opflow import X, I
 
 W1 = np.array([
     [0, 1, 0, 1],
@@ -73,14 +73,13 @@ class TestQAOA(QiskitOptimizationTestCase):
         backend = BasicAer.get_backend('statevector_simulator')
         optimizer = COBYLA()
         qubit_op, offset = max_cut.get_operator(w)
-        qubit_op = qubit_op.to_opflow()
         if convert_to_matrix_op:
             qubit_op = qubit_op.to_matrix_op()
 
-        qaoa = QAOA(qubit_op, optimizer, prob, mixer=m)
-        quantum_instance = QuantumInstance(backend, seed_simulator=seed, seed_transpiler=seed)
+        q_i = QuantumInstance(backend, seed_simulator=seed, seed_transpiler=seed)
+        qaoa = QAOA(optimizer, prob, mixer=m, quantum_instance=q_i)
 
-        result = qaoa.run(quantum_instance)
+        result = qaoa.compute_minimum_eigenvalue(operator=qubit_op)
         x = sample_most_likely(result.eigenstate)
         graph_solution = max_cut.get_graph_solution(x)
         self.log.debug('energy:             %s', result.eigenvalue.real)
@@ -107,7 +106,6 @@ class TestQAOA(QiskitOptimizationTestCase):
         backend = BasicAer.get_backend('statevector_simulator')
         optimizer = COBYLA()
         qubit_op, _ = max_cut.get_operator(w)
-        qubit_op = qubit_op.to_opflow()
         if convert_to_matrix_op:
             qubit_op = qubit_op.to_matrix_op()
 
@@ -116,10 +114,10 @@ class TestQAOA(QiskitOptimizationTestCase):
         theta = Parameter('θ')
         mixer.rx(theta, range(num_qubits))
 
-        qaoa = QAOA(qubit_op, optimizer, prob, mixer=mixer)
-        quantum_instance = QuantumInstance(backend, seed_simulator=seed, seed_transpiler=seed)
+        q_i = QuantumInstance(backend, seed_simulator=seed, seed_transpiler=seed)
+        qaoa = QAOA(optimizer, prob, mixer=mixer, quantum_instance=q_i)
 
-        result = qaoa.run(quantum_instance)
+        result = qaoa.compute_minimum_eigenvalue(operator=qubit_op)
         x = sample_most_likely(result.eigenstate)
         graph_solution = max_cut.get_graph_solution(x)
         self.assertIn(''.join([str(int(i)) for i in graph_solution]), solutions)
@@ -131,7 +129,6 @@ class TestQAOA(QiskitOptimizationTestCase):
 
         optimizer = COBYLA()
         qubit_op, _ = max_cut.get_operator(W1)
-        qubit_op = qubit_op.to_opflow()
 
         num_qubits = qubit_op.num_qubits
         mixer = QuantumCircuit(num_qubits)
@@ -139,10 +136,10 @@ class TestQAOA(QiskitOptimizationTestCase):
             theta = Parameter('θ' + str(i))
             mixer.rx(theta, range(num_qubits))
 
-        qaoa = QAOA(qubit_op, optimizer=optimizer, p=2, mixer=mixer)
         backend = BasicAer.get_backend('statevector_simulator')
-        quantum_instance = QuantumInstance(backend, seed_simulator=seed, seed_transpiler=seed)
-        result = qaoa.run(quantum_instance)
+        q_i = QuantumInstance(backend, seed_simulator=seed, seed_transpiler=seed)
+        qaoa = QAOA(optimizer=optimizer, p=2, mixer=mixer, quantum_instance=q_i)
+        result = qaoa.compute_minimum_eigenvalue(operator=qubit_op)
         x = sample_most_likely(result.eigenstate)
         print(x)
         graph_solution = max_cut.get_graph_solution(x)
@@ -154,17 +151,16 @@ class TestQAOA(QiskitOptimizationTestCase):
         aqua_globals.random_seed = seed
 
         qubit_op, _ = max_cut.get_operator(W1)
-        qubit_op = qubit_op.to_opflow()
 
         num_qubits = qubit_op.num_qubits
         mixer = QuantumCircuit(num_qubits)
         # just arbitrary circuit
         mixer.rx(np.pi/2, range(num_qubits))
 
-        qaoa = QAOA(qubit_op, optimizer=COBYLA(), p=1, mixer=mixer)
         backend = BasicAer.get_backend('statevector_simulator')
-        quantum_instance = QuantumInstance(backend, seed_simulator=seed, seed_transpiler=seed)
-        result = qaoa.run(quantum_instance)
+        q_i = QuantumInstance(backend, seed_simulator=seed, seed_transpiler=seed)
+        qaoa = QAOA(optimizer=COBYLA(), p=1, mixer=mixer, quantum_instance=q_i)
+        result = qaoa.compute_minimum_eigenvalue(operator=qubit_op)
         # we just assert that we get a result, it is not meaningful.
         self.assertIsNotNone(result.eigenstate)
 
@@ -179,11 +175,11 @@ class TestQAOA(QiskitOptimizationTestCase):
                 [0, 1, 0, 1],
                 [1, 0, 1, 0]
             ]))
-        qaoa = QAOA(qubit_op.to_opflow(), COBYLA(), 1)
-        quantum_instance = QuantumInstance(BasicAer.get_backend('statevector_simulator'),
-                                           seed_simulator=aqua_globals.random_seed,
-                                           seed_transpiler=aqua_globals.random_seed)
-        result = qaoa.run(quantum_instance)
+        q_i = QuantumInstance(BasicAer.get_backend('statevector_simulator'),
+                              seed_simulator=aqua_globals.random_seed,
+                              seed_transpiler=aqua_globals.random_seed)
+        qaoa = QAOA(COBYLA(), 1, quantum_instance=q_i)
+        result = qaoa.compute_minimum_eigenvalue(operator=qubit_op)
         x = sample_most_likely(result.eigenstate)
         graph_solution = max_cut.get_graph_solution(x)
         with self.subTest(msg='QAOA 4x4'):
@@ -199,12 +195,11 @@ class TestQAOA(QiskitOptimizationTestCase):
                     [0, 1, 0, 1, 0, 1],
                     [1, 0, 1, 0, 1, 0],
                 ]))
-            qaoa.operator = qubit_op.to_opflow()
         except Exception as ex:  # pylint: disable=broad-except
             self.fail("Failed to change operator. Error: '{}'".format(str(ex)))
             return
 
-        result = qaoa.run()
+        result = qaoa.compute_minimum_eigenvalue(operator=qubit_op)
         x = sample_most_likely(result.eigenstate)
         graph_solution = max_cut.get_graph_solution(x)
         with self.subTest(msg='QAOA 6x6'):
@@ -312,13 +307,13 @@ class TestQAOA(QiskitOptimizationTestCase):
         w = nx.adjacency_matrix(
             nx.fast_gnp_random_graph(5, 0.5, seed=aqua_globals.random_seed)).toarray()
         qubit_op, _ = max_cut.get_operator(w)
-        qaoa = QAOA(qubit_op, NELDER_MEAD(disp=True), 1)
 
-        quantum_instance = QuantumInstance(BasicAer.get_backend('qasm_simulator'),
-                                           seed_simulator=aqua_globals.random_seed,
-                                           seed_transpiler=aqua_globals.random_seed,
-                                           shots=4096)
-        _ = qaoa.run(quantum_instance)
+        q_i = QuantumInstance(BasicAer.get_backend('qasm_simulator'),
+                              seed_simulator=aqua_globals.random_seed,
+                              seed_transpiler=aqua_globals.random_seed,
+                              shots=4096)
+        qaoa = QAOA(NELDER_MEAD(disp=True), 1, quantum_instance=q_i)
+        _ = qaoa.compute_minimum_eigenvalue(operator=qubit_op)
 
         np.testing.assert_almost_equal([-0.8792, 0.3948], qaoa.optimal_params, decimal=4)
 

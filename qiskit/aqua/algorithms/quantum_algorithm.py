@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -32,6 +32,12 @@ class QuantumAlgorithm(ABC):
     This method should initialize the module and
     use an exception if a component of the module is available.
     """
+
+    DEPR_MSG = ('qiskit.aqua.algorithms.{} is deprecated '
+                'as of 0.9.0, and will be '
+                'removed no earlier than 3 months after the release date. '
+                'Please use qiskit.algorithms.{}.')
+
     @abstractmethod
     def __init__(self,
                  quantum_instance: Optional[

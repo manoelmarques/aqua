@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -141,6 +141,9 @@ class VQE(VQAlgorithm, MinimumEigensolver):
                 variational form, the evaluated mean and the evaluated standard deviation.`
             quantum_instance: Quantum Instance or Backend
         """
+        warnings.warn(
+            QuantumAlgorithm.DEPR_MSG.format('VQE', 'VQE'),
+            DeprecationWarning)
         validate_min('max_evals_grouped', max_evals_grouped, 1)
         if var_form is None:
             var_form = RealAmplitudes()

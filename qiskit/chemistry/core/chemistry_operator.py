@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020
+# (C) Copyright IBM 2018, 2021
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -21,8 +21,12 @@ import logging
 from typing import Dict, Union, List, Tuple, Optional, cast
 import numpy as np
 
-from qiskit.aqua.algorithms import MinimumEigensolverResult, EigensolverResult, AlgorithmResult
 from qiskit.chemistry import QMolecule
+from qiskit.aqua.algorithms import MinimumEigensolverResult as OldMinimumEigensolverResult
+from qiskit.aqua.algorithms import EigensolverResult as OldEigensolverResult
+from qiskit.algorithms import MinimumEigensolverResult, EigensolverResult
+from qiskit.aqua.algorithms import AlgorithmResult as OldAlgorithmResult
+from qiskit.algorithms import AlgorithmResult
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +71,13 @@ class ChemistryOperator(ABC):
 
     def process_algorithm_result(
             self, algo_result: Union[dict,
+                                     OldMinimumEigensolverResult,
                                      MinimumEigensolverResult,
-                                     EigensolverResult]) -> Union[Tuple[List[str], dict],
-                                                                  'MolecularGroundStateResult',
-                                                                  'MolecularExcitedStatesResult']:
+                                     OldEigensolverResult,
+                                     EigensolverResult]) \
+            -> Union[Tuple[List[str], dict],
+                     'MolecularGroundStateResult',
+                     'MolecularExcitedStatesResult']:
         """
         Takes the algorithm result and processes it as required, e.g. by
         combination of any parts that were classically computed, for the
@@ -82,9 +89,11 @@ class ChemistryOperator(ABC):
         Returns:
             Final chemistry result computed from the algorithm result
         """
-        if isinstance(algo_result, MinimumEigensolverResult):
+        if isinstance(algo_result, (OldMinimumEigensolverResult,
+                                    MinimumEigensolverResult)):
             return self._process_algorithm_result(algo_result)
-        elif isinstance(algo_result, EigensolverResult):
+        elif isinstance(algo_result, (OldEigensolverResult,
+                                      EigensolverResult)):
             return self._process_algorithm_result(algo_result)
         else:
             lines, result = self._process_algorithm_result(algo_result)
@@ -104,7 +113,7 @@ class ChemistryOperator(ABC):
         self._molecule_info[key] = value
 
 
-class MolecularChemistryResult(AlgorithmResult):
+class MolecularChemistryResult(OldAlgorithmResult):
     """
     Molecular chemistry Result
 
@@ -119,12 +128,15 @@ class MolecularChemistryResult(AlgorithmResult):
                       'FermionicGroundStateResult instead.', DeprecationWarning, stacklevel=2)
 
     @property
-    def algorithm_result(self) -> AlgorithmResult:
+    def algorithm_result(self) -> Union[OldAlgorithmResult,
+                                        AlgorithmResult]:
         """ Returns raw algorithm result """
         return self.get('algorithm_result')
 
     @algorithm_result.setter
-    def algorithm_result(self, value: AlgorithmResult) -> None:
+    def algorithm_result(self,
+                         value: Union[OldAlgorithmResult,
+                                      AlgorithmResult]) -> None:
         """ Sets raw algorithm result """
         self.data['algorithm_result'] = value
 

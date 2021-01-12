@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,35 +12,9 @@
 
 """Exception for errors raised by Optional Missing Libraries."""
 
-from typing import Optional
-from .aqua_error import AquaError
+from qiskit.exceptions import MissingOptionalLibraryError \
+    as QMissingOptionalLibraryError
 
 
-class MissingOptionalLibraryError(AquaError):
+class MissingOptionalLibraryError(QMissingOptionalLibraryError):
     """Raised when an optional library is missing."""
-
-    def __init__(self,
-                 libname: str,
-                 name: str,
-                 pip_install: Optional[str] = None,
-                 msg: Optional[str] = None) -> None:
-        """Set the error message.
-
-        Args:
-            libname: Name of missing library
-            name: Name of class, function, module that uses this library
-            pip_install: pip install command, if any
-            msg: Descriptive message, if any
-        """
-        message = ["The '{}' library is required to use '{}'.".format(libname, name)]
-        if pip_install:
-            message.append("You can install it with '{}'.".format(pip_install))
-        if msg:
-            message.append(' {}.'.format(msg))
-
-        super().__init__(' '.join(message))
-        self.message = ' '.join(message)
-
-    def __str__(self) -> str:
-        """Return the message."""
-        return repr(self.message)

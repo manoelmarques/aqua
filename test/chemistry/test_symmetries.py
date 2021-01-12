@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,9 +16,9 @@ import unittest
 
 from test.chemistry import QiskitChemistryTestCase
 from qiskit import BasicAer
-from qiskit.aqua import QuantumInstance
-from qiskit.aqua.algorithms import VQE
-from qiskit.aqua.components.optimizers import SLSQP
+from qiskit.utils import QuantumInstance
+from qiskit.algorithms import VQE
+from qiskit.algorithms.optimizers import SLSQP
 from qiskit.chemistry import QiskitChemistryError
 from qiskit.chemistry.drivers import PySCFDriver, UnitsType
 from qiskit.chemistry.components.variational_forms import UCCSD
@@ -54,7 +54,7 @@ class TestSymmetries(QiskitChemistryTestCase):
 
         self.z2_symmetries = self.fermionic_transformation.molecule_info.pop('z2_symmetries')
 
-        self.reference_energy = -7.882096489442
+        self.reference_energy = -7.862121680632188
 
     def test_symmetries(self):
         """ symmetries test """

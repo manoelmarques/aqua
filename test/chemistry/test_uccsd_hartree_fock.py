@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -15,10 +15,10 @@
 from test.chemistry import QiskitChemistryTestCase
 from ddt import ddt, idata, unpack
 from qiskit import BasicAer
-from qiskit.aqua import QuantumInstance, aqua_globals
-from qiskit.aqua.algorithms import VQE
-from qiskit.aqua.components.optimizers import SLSQP, SPSA
-from qiskit.aqua.operators import AerPauliExpectation, PauliExpectation
+from qiskit.utils import QuantumInstance, aqua_globals
+from qiskit.algorithms import VQE
+from qiskit.algorithms.optimizers import SLSQP, SPSA
+from qiskit.opflow import AerPauliExpectation, PauliExpectation
 
 from qiskit.chemistry.circuit.library import HartreeFock
 from qiskit.chemistry.components.variational_forms import UCCSD

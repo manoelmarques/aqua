@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,9 +16,9 @@ import unittest
 
 from test.chemistry import QiskitChemistryTestCase
 from qiskit import BasicAer
-from qiskit.aqua import QuantumInstance
-from qiskit.aqua.algorithms import VQE
-from qiskit.aqua.components.optimizers import SLSQP
+from qiskit.utils import QuantumInstance
+from qiskit.algorithms import VQE
+from qiskit.algorithms.optimizers import SLSQP
 from qiskit.chemistry import QiskitChemistryError
 from qiskit.chemistry.circuit.library import HartreeFock
 from qiskit.chemistry.components.variational_forms import UCCSD
@@ -54,7 +54,7 @@ class TestUCCSDHartreeFock(QiskitChemistryTestCase):
             self.reference_energy_UCCD0 = -1.1476045878481704
             self.reference_energy_UCCD0full = -1.1515491334334347
             # reference energy of UCCSD/VQE with tapering everywhere
-            self.reference_energy_UCCSD = -1.1516142309717594
+            self.reference_energy_UCCSD = -1.1515845443912789
             # reference energy of UCCSD/VQE when no tapering on excitations is used
             self.reference_energy_UCCSD_no_tap_exc = -1.1516142309717594
             # excitations for succ

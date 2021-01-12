@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -15,28 +15,40 @@
 from typing import Optional, Union, Callable
 import numpy as np
 
-from qiskit.aqua import QuantumInstance, AquaError
-from qiskit.aqua.algorithms import MinimumEigensolver, VQE
-from qiskit.aqua.operators import ExpectationBase
-from qiskit.aqua.operators.gradients import GradientBase
-from qiskit.aqua.components.optimizers import Optimizer
+from qiskit.aqua import QuantumInstance as OldQuantumInstance
+from qiskit.utils import QuantumInstance
+from qiskit.aqua.components.optimizers import Optimizer as OldOptimizer
+from qiskit.algorithms import VQE, MinimumEigensolver
+from qiskit.algorithms.optimizers import Optimizer
+from qiskit.aqua.algorithms import VQE as OldVQE
+from qiskit.aqua.algorithms import MinimumEigensolver as OldMinimumEigensolver
+from qiskit.aqua.operators.gradients import GradientBase as OldGradientBase
+from qiskit.opflow import GradientBase, ExpectationBase
+from qiskit.aqua.operators import ExpectationBase as OldExpectationBase
+from qiskit.aqua import aqua_globals
+
 from ....components.variational_forms import UCCSD
 from ....transformations import Transformation
 from ....transformations.fermionic_transformation import FermionicTransformation
 from ....circuit.library import HartreeFock
 
 from .minimum_eigensolver_factory import MinimumEigensolverFactory
+from ....qiskit_chemistry_error import QiskitChemistryError
 
 
 class VQEUCCSDFactory(MinimumEigensolverFactory):
     """A factory to construct a VQE minimum eigensolver with UCCSD ansatz wavefunction."""
 
     def __init__(self,
-                 quantum_instance: QuantumInstance,
-                 optimizer: Optional[Optimizer] = None,
+                 quantum_instance: Union[OldQuantumInstance,
+                                         QuantumInstance],
+                 optimizer: Optional[Union[OldOptimizer, Optimizer]] = None,
                  initial_point: Optional[np.ndarray] = None,
-                 gradient: Optional[Union[GradientBase, Callable]] = None,
-                 expectation: Optional[ExpectationBase] = None,
+                 gradient: Optional[Union[Union[OldGradientBase,
+                                                GradientBase],
+                                          Callable]] = None,
+                 expectation: Optional[Union[OldExpectationBase,
+                                             ExpectationBase]] = None,
                  include_custom: bool = False,
                  method_singles: str = 'both',
                  method_doubles: str = 'ucc',
@@ -82,31 +94,29 @@ class VQEUCCSDFactory(MinimumEigensolverFactory):
         self._method_doubles = method_doubles
         self._excitation_type = excitation_type
         self._same_spin_doubles = same_spin_doubles
-        self._vqe = VQE(var_form=None,
-                        quantum_instance=self._quantum_instance,
-                        optimizer=self._optimizer,
-                        initial_point=self._initial_point,
-                        gradient=self._gradient,
-                        expectation=self._expectation,
-                        include_custom=self._include_custom)
 
     @property
-    def quantum_instance(self) -> QuantumInstance:
+    def quantum_instance(self) -> Union[OldQuantumInstance,
+                                        QuantumInstance]:
         """Getter of the quantum instance."""
         return self._quantum_instance
 
     @quantum_instance.setter
-    def quantum_instance(self, q_instance: QuantumInstance) -> None:
+    def quantum_instance(self,
+                         q_instance: Union[OldQuantumInstance,
+                                           QuantumInstance]) -> None:
         """Setter of the quantum instance."""
         self._quantum_instance = q_instance
 
     @property
-    def optimizer(self) -> Optimizer:
+    def optimizer(self) -> Union[OldOptimizer,
+                                 Optimizer]:
         """Getter of the optimizer."""
         return self._optimizer
 
     @optimizer.setter
-    def optimizer(self, optimizer: Optimizer) -> None:
+    def optimizer(self, optimizer: Union[OldOptimizer,
+                                         Optimizer]) -> None:
         """Setter of the optimizer."""
         self._optimizer = optimizer
 
@@ -121,22 +131,28 @@ class VQEUCCSDFactory(MinimumEigensolverFactory):
         self._initial_point = initial_point
 
     @property
-    def gradient(self) -> Optional[Union[GradientBase, Callable]]:
+    def gradient(self) -> Optional[Union[OldGradientBase,
+                                         GradientBase,
+                                         Callable]]:
         """Getter of the gradient function"""
         return self._gradient
 
     @gradient.setter
-    def gradient(self, gradient: Optional[Union[GradientBase, Callable]]) -> None:
+    def gradient(self, gradient: Optional[Union[OldGradientBase,
+                                                GradientBase,
+                                                Callable]]) -> None:
         """Setter of the gradient function"""
         self._gradient = gradient
 
     @property
-    def expectation(self) -> ExpectationBase:
+    def expectation(self) -> Union[OldExpectationBase,
+                                   ExpectationBase]:
         """Getter of the expectation."""
         return self._expectation
 
     @expectation.setter
-    def expectation(self, expectation: ExpectationBase) -> None:
+    def expectation(self, expectation: Union[OldExpectationBase,
+                                             ExpectationBase]) -> None:
         """Setter of the expectation."""
         self._expectation = expectation
 
@@ -190,7 +206,10 @@ class VQEUCCSDFactory(MinimumEigensolverFactory):
         """Setter of the ``same_spin_doubles`` setting for the ``same_spin_doubles`` setting."""
         self._same_spin_doubles = same_spin_doubles
 
-    def get_solver(self, transformation: Transformation) -> MinimumEigensolver:
+    def get_solver(self,
+                   transformation: Transformation) \
+            -> Union[OldMinimumEigensolver,
+                     MinimumEigensolver]:
         """Returns a VQE with a UCCSD wavefunction ansatz, based on ``transformation``.
         This works only with a ``FermionicTransformation``.
 
@@ -202,10 +221,11 @@ class VQEUCCSDFactory(MinimumEigensolverFactory):
             by ``transformation``.
 
         Raises:
-            AquaError: in case a Transformation of wrong type is given.
+            QiskitChemistryError: in case a Transformation of wrong type is given.
         """
         if not isinstance(transformation, FermionicTransformation):
-            raise AquaError('VQEUCCSDFactory.getsolver() requires a FermionicTransformation')
+            raise QiskitChemistryError(
+                'VQEUCCSDFactory.getsolver() requires a FermionicTransformation')
 
         num_orbitals = transformation.molecule_info['num_orbitals']
         num_particles = transformation.molecule_info['num_particles']
@@ -215,18 +235,37 @@ class VQEUCCSDFactory(MinimumEigensolverFactory):
 
         initial_state = HartreeFock(num_orbitals, num_particles, qubit_mapping,
                                     two_qubit_reduction, z2_symmetries.sq_list)
-        self._vqe.var_form = UCCSD(num_orbitals=num_orbitals,
-                                   num_particles=num_particles,
-                                   initial_state=initial_state,
-                                   qubit_mapping=qubit_mapping,
-                                   two_qubit_reduction=two_qubit_reduction,
-                                   z2_symmetries=z2_symmetries,
-                                   method_singles=self._method_singles,
-                                   method_doubles=self._method_doubles,
-                                   excitation_type=self._excitation_type,
-                                   same_spin_doubles=self._same_spin_doubles)
+        var_form = UCCSD(num_orbitals=num_orbitals,
+                         num_particles=num_particles,
+                         initial_state=initial_state,
+                         qubit_mapping=qubit_mapping,
+                         two_qubit_reduction=two_qubit_reduction,
+                         z2_symmetries=z2_symmetries,
+                         method_singles=self._method_singles,
+                         method_doubles=self._method_doubles,
+                         excitation_type=self._excitation_type,
+                         same_spin_doubles=self._same_spin_doubles)
+        if aqua_globals.deprecated_code:
+            vqe = OldVQE(var_form=var_form,
+                         quantum_instance=self._quantum_instance,
+                         optimizer=self._optimizer,
+                         initial_point=self._initial_point,
+                         gradient=self._gradient,
+                         expectation=self._expectation,
+                         include_custom=self._include_custom)
+        else:
+            vqe = VQE(var_form=var_form,
+                      quantum_instance=self._quantum_instance,
+                      optimizer=self._optimizer,
+                      initial_point=self._initial_point,
+                      gradient=self._gradient,
+                      expectation=self._expectation,
+                      include_custom=self._include_custom)
 
-        return self._vqe
+        return vqe
 
     def supports_aux_operators(self):
-        return VQE.supports_aux_operators()
+        if aqua_globals.deprecated_code:
+            return OldVQE.supports_aux_operators()
+        else:
+            return VQE.supports_aux_operators()

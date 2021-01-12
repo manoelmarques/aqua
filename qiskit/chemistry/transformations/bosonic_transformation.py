@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -23,8 +23,12 @@ import numpy as np
 
 from qiskit.tools import parallel_map
 from qiskit.aqua import aqua_globals
-from qiskit.aqua.algorithms import EigensolverResult, MinimumEigensolverResult
-from qiskit.aqua.operators.legacy import WeightedPauliOperator
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
+from qiskit.aqua.algorithms import EigensolverResult as OldEigensolverResult
+from qiskit.aqua.algorithms import MinimumEigensolverResult \
+    as OldMinimumEigensolverResult
+from qiskit.algorithms import EigensolverResult, MinimumEigensolverResult
 from qiskit.chemistry import QiskitChemistryError
 from qiskit.chemistry import WatsonHamiltonian
 from qiskit.chemistry.bosonic_operator import BosonicOperator
@@ -69,7 +73,6 @@ class BosonicTransformation(Transformation):
             truncation: where is the Hamiltonian expansion truncation (1 for having only
                               1-body terms, 2 for having on 1- and 2-body terms...)
         """
-
         self._qubit_mapping = qubit_mapping.value
         self._transformation_type = transformation_type.value
         self._basis_size = basis_size
@@ -103,7 +106,10 @@ class BosonicTransformation(Transformation):
 
     def transform(self, driver: BaseDriver,
                   aux_operators: Optional[List[Any]] = None
-                  ) -> Tuple[WeightedPauliOperator, List[WeightedPauliOperator]]:
+                  ) -> Tuple[Union[OldWeightedPauliOperator,
+                                   WeightedPauliOperator],
+                             List[Union[OldWeightedPauliOperator,
+                                        WeightedPauliOperator]]]:
         """
         Transformation to qubit operator from the driver
 
@@ -115,13 +121,27 @@ class BosonicTransformation(Transformation):
         """
         watson = driver.run()
         ops, aux_ops = self._do_transform(watson, aux_operators)
-
+        if not aqua_globals.deprecated_code:
+            # the internal method may still return legacy operators which is why we make
+            # sure to convert
+            # all of the operator to the operator flow
+            ops = ops.to_opflow() if isinstance(ops, (OldWeightedPauliOperator,
+                                                      WeightedPauliOperator)) else ops
+            aux_ops = [a.to_opflow()
+                       if isinstance(a,
+                                     (OldWeightedPauliOperator,
+                                      WeightedPauliOperator)) else a for a in aux_ops]
         return ops, aux_ops
 
     def _do_transform(self, watson: WatsonHamiltonian,
-                      aux_operators: Optional[List[Union[BosonicOperator,
-                                                         WeightedPauliOperator]]] = None
-                      ) -> Tuple[WeightedPauliOperator, List[WeightedPauliOperator]]:
+                      aux_operators:
+                      Optional[List[Union[BosonicOperator,
+                                          Union[OldWeightedPauliOperator,
+                                                WeightedPauliOperator]]]] = None
+                      ) -> Tuple[Union[OldWeightedPauliOperator,
+                                       WeightedPauliOperator],
+                                 List[Union[OldWeightedPauliOperator,
+                                            WeightedPauliOperator]]]:
 
         self._num_modes = watson.num_modes
 
@@ -148,7 +168,8 @@ class BosonicTransformation(Transformation):
                 name: name
 
             """
-            if not isinstance(aux_op, WeightedPauliOperator):
+            if not isinstance(aux_op, (OldWeightedPauliOperator,
+                                       WeightedPauliOperator)):
                 aux_qop = BosonicTransformation._map_bosonic_operator_to_qubit(
                     aux_op, self._qubit_mapping)
                 aux_qop.name = name
@@ -171,8 +192,13 @@ class BosonicTransformation(Transformation):
 
         return qubit_op, aux_ops
 
-    def interpret(self, raw_result: Union[EigenstateResult, EigensolverResult,
-                                          MinimumEigensolverResult]) -> VibronicStructureResult:
+    def interpret(self,
+                  raw_result: Union[EigenstateResult,
+                                    OldEigensolverResult,
+                                    EigensolverResult,
+                                    OldMinimumEigensolverResult,
+                                    MinimumEigensolverResult]) \
+            -> VibronicStructureResult:
         """Interprets an EigenstateResult in the context of this transformation.
 
                Args:
@@ -185,13 +211,14 @@ class BosonicTransformation(Transformation):
         eigenstate_result = None
         if isinstance(raw_result, EigenstateResult):
             eigenstate_result = raw_result
-        elif isinstance(raw_result, EigensolverResult):
+        elif isinstance(raw_result, (OldEigensolverResult, EigensolverResult)):
             eigenstate_result = EigenstateResult()
             eigenstate_result.raw_result = raw_result
             eigenstate_result.eigenenergies = raw_result.eigenvalues
             eigenstate_result.eigenstates = raw_result.eigenstates
             eigenstate_result.aux_operator_eigenvalues = raw_result.aux_operator_eigenvalues
-        elif isinstance(raw_result, MinimumEigensolverResult):
+        elif isinstance(raw_result, (OldMinimumEigensolverResult,
+                                     MinimumEigensolverResult)):
             eigenstate_result = EigenstateResult()
             eigenstate_result.raw_result = raw_result
             eigenstate_result.eigenenergies = np.asarray([raw_result.eigenvalue])
@@ -199,7 +226,7 @@ class BosonicTransformation(Transformation):
             eigenstate_result.aux_operator_eigenvalues = raw_result.aux_operator_eigenvalues
 
         result = VibronicStructureResult(eigenstate_result.data)
-        result.computed_vibronic_energies = eigenstate_result.eigenenergies
+        result.computed_vibronic_energies = result.eigenenergies
         if result.aux_operator_eigenvalues is not None:
             if not isinstance(result.aux_operator_eigenvalues, list):
                 aux_operator_eigenvalues = [result.aux_operator_eigenvalues]
@@ -220,7 +247,9 @@ class BosonicTransformation(Transformation):
 
     @staticmethod
     def _map_bosonic_operator_to_qubit(bos_op: BosonicOperator,
-                                       qubit_mapping: str) -> WeightedPauliOperator:
+                                       qubit_mapping: str) \
+            -> Union[OldWeightedPauliOperator,
+                     WeightedPauliOperator]:
         """
         Args:
             bos_op: a BosonicOperator
@@ -237,7 +266,9 @@ class BosonicTransformation(Transformation):
     @staticmethod
     def _build_single_hopping_operator(index: List[List[int]],
                                        basis: List[int],
-                                       qubit_mapping: str) -> WeightedPauliOperator:
+                                       qubit_mapping: str) \
+            -> Union[OldWeightedPauliOperator,
+                     WeightedPauliOperator]:
         """
         Builds a hopping operator given the list of indices (index) that is a single, a double
         or a higher order excitation.
@@ -270,7 +301,8 @@ class BosonicTransformation(Transformation):
         return qubit_op
 
     def build_hopping_operators(self, excitations: Union[str, List[List[int]]] = 'sd') \
-            -> Tuple[Dict[str, WeightedPauliOperator],
+            -> Tuple[Dict[str, Union[OldWeightedPauliOperator,
+                                     WeightedPauliOperator]],
                      Dict,
                      Dict[str, List[List[int]]]]:
         """
@@ -296,7 +328,8 @@ class BosonicTransformation(Transformation):
                 dag_lst.append([lst[0], lst[2], lst[1]])
             return dag_lst
 
-        hopping_operators: Dict[str, WeightedPauliOperator] = {}
+        hopping_operators: Dict[str, Union[OldWeightedPauliOperator,
+                                           WeightedPauliOperator]] = {}
         excitation_indices = {}
         to_be_executed_list = []
         for idx in range(size):

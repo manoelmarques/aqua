@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -15,7 +15,7 @@
 import unittest
 
 from test.chemistry import QiskitChemistryTestCase
-from qiskit.aqua.operators import OperatorBase, I, Z
+from qiskit.opflow import OperatorBase, I, Z
 from qiskit.chemistry import QiskitChemistryError, FermionicOperator
 from qiskit.chemistry.core import TransformationType, QubitMappingType
 from qiskit.chemistry.drivers import PySCFDriver, UnitsType

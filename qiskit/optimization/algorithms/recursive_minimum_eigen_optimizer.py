@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,9 +18,11 @@ from enum import Enum
 from typing import Optional, Union, List, Tuple, Dict, cast
 
 import numpy as np
-from qiskit.aqua.algorithms import NumPyMinimumEigensolver
-from qiskit.aqua.utils.validation import validate_min
 
+from qiskit.utils.validation import validate_min
+from qiskit.aqua import aqua_globals
+from qiskit.aqua.algorithms import NumPyMinimumEigensolver as OldNumPyMinimumEigensolver
+from qiskit.algorithms import NumPyMinimumEigensolver
 from .minimum_eigen_optimizer import MinimumEigenOptimizer, MinimumEigenOptimizationResult
 from .optimization_algorithm import (OptimizationResultStatus, OptimizationAlgorithm,
                                      OptimizationResult)
@@ -160,7 +162,9 @@ class RecursiveMinimumEigenOptimizer(OptimizationAlgorithm):
         if min_num_vars_optimizer:
             self._min_num_vars_optimizer = min_num_vars_optimizer
         else:
-            self._min_num_vars_optimizer = MinimumEigenOptimizer(NumPyMinimumEigensolver())
+            e_s = OldNumPyMinimumEigensolver() \
+                if aqua_globals.deprecated_code else NumPyMinimumEigensolver()
+            self._min_num_vars_optimizer = MinimumEigenOptimizer(e_s)
         self._penalty = penalty
         self._history = history
 

@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -19,8 +19,8 @@ import numpy as np
 from ddt import data, ddt
 from docplex.mp.model import Model
 from qiskit import Aer
-from qiskit.aqua import QuantumInstance, aqua_globals
-from qiskit.aqua.algorithms import NumPyMinimumEigensolver
+from qiskit.utils import QuantumInstance, aqua_globals
+from qiskit.algorithms import NumPyMinimumEigensolver
 from qiskit.optimization.algorithms import (GroverOptimizer,
                                             MinimumEigenOptimizer)
 from qiskit.optimization.converters import (InequalityToEquality,

@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2019, 2020.
+# (C) Copyright IBM 2019, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -23,23 +23,31 @@ from scipy import linalg
 from qiskit import QuantumCircuit, QuantumRegister
 from qiskit.tools import parallel_map
 from qiskit.tools.events import TextProgressBar
-from qiskit.aqua import AquaError, aqua_globals
-from qiskit.aqua.operators import (LegacyBaseOperator,
-                                   WeightedPauliOperator,
-                                   Z2Symmetries,
-                                   TPBGroupedWeightedPauliOperator,
-                                   commutator)
-from qiskit.aqua.operators.legacy import op_converter
-
+from qiskit.aqua import aqua_globals
+from qiskit.aqua.operators import LegacyBaseOperator as OldLegacyBaseOperator
+from qiskit.opflow import LegacyBaseOperator
+from qiskit.aqua.operators import Z2Symmetries as OldZ2Symmetries
+from qiskit.opflow import Z2Symmetries
+from qiskit.aqua.operators.legacy import op_converter as old_op_converter
+from qiskit.opflow.legacy import op_converter
+from qiskit.aqua.operators import TPBGroupedWeightedPauliOperator \
+    as OldTPBGroupedWeightedPauliOperator
+from qiskit.opflow import TPBGroupedWeightedPauliOperator
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
+from qiskit.aqua.operators import commutator as old_commutator
+from qiskit.opflow import commutator
 from qiskit.chemistry.components.variational_forms import UCCSD
-from qiskit.chemistry import FermionicOperator
+from qiskit.chemistry import FermionicOperator, QiskitChemistryError
+
 
 logger = logging.getLogger(__name__)
 
 
 class QEquationOfMotion:
     """ QEquationOfMotion algorithm """
-    def __init__(self, operator: LegacyBaseOperator,
+    def __init__(self, operator: Union[OldLegacyBaseOperator,
+                                       LegacyBaseOperator],
                  num_orbitals: int,
                  num_particles: Union[List[int], int],
                  qubit_mapping: Optional[str] = None,
@@ -49,8 +57,11 @@ class QEquationOfMotion:
                  is_eom_matrix_symmetric: bool = True,
                  se_list: Optional[List[List[int]]] = None,
                  de_list: Optional[List[List[int]]] = None,
-                 z2_symmetries: Optional[Z2Symmetries] = None,
-                 untapered_op: Optional[LegacyBaseOperator] = None) -> None:
+                 z2_symmetries: Optional[Union[OldZ2Symmetries,
+                                               Z2Symmetries]] = None,
+                 untapered_op:
+                 Optional[Union[OldLegacyBaseOperator,
+                                LegacyBaseOperator]] = None) -> None:
         """Constructor.
 
         Args:
@@ -95,8 +106,12 @@ class QEquationOfMotion:
             self._de_list = de_list
             logger.info("Use user-specified double excitation list: %s", self._de_list)
 
-        self._z2_symmetries = z2_symmetries if z2_symmetries is not None \
-            else Z2Symmetries([], [], [])
+        if aqua_globals.deprecated_code:
+            self._z2_symmetries = z2_symmetries if z2_symmetries is not None \
+                else OldZ2Symmetries([], [], [])
+        else:
+            self._z2_symmetries = z2_symmetries if z2_symmetries is not None \
+                else Z2Symmetries([], [], [])
         self._untapered_op = untapered_op if untapered_op is not None else operator
 
         self._is_eom_matrix_symmetric = is_eom_matrix_symmetric
@@ -136,8 +151,12 @@ class QEquationOfMotion:
         # this is required to assure paulis mode is there regardless how you compute VQE
         # it might be slow if you calculate vqe through matrix mode and then convert
         # it back to paulis
-        self._operator = op_converter.to_weighted_pauli_operator(self._operator)
-        self._untapered_op = op_converter.to_weighted_pauli_operator(self._untapered_op)
+        if aqua_globals.deprecated_code:
+            self._operator = old_op_converter.to_weighted_pauli_operator(self._operator)
+            self._untapered_op = old_op_converter.to_weighted_pauli_operator(self._untapered_op)
+        else:
+            self._operator = op_converter.to_weighted_pauli_operator(self._operator)
+            self._untapered_op = op_converter.to_weighted_pauli_operator(self._untapered_op)
 
         excitations_list = self._de_list + self._se_list if excitations_list is None \
             else excitations_list
@@ -261,24 +280,62 @@ class QEquationOfMotion:
             if logger.isEnabledFor(logging.INFO):
                 logger.info("Building all commutators:")
                 TextProgressBar(sys.stderr)
-            results = parallel_map(QEquationOfMotion._build_commutator_rountine,
+            results = parallel_map(QEquationOfMotion._build_commutator_routine,
                                    to_be_computed_list,
                                    task_args=(self._untapered_op, self._z2_symmetries),
                                    num_processes=aqua_globals.num_processes)
             for result in results:
                 m_u, n_u, q_mat_op, w_mat_op, m_mat_op, v_mat_op = result
-                q_commutators[m_u][n_u] = op_converter.to_tpb_grouped_weighted_pauli_operator(
-                    q_mat_op, TPBGroupedWeightedPauliOperator.sorted_grouping) \
-                    if q_mat_op is not None else q_commutators[m_u][n_u]
-                w_commutators[m_u][n_u] = op_converter.to_tpb_grouped_weighted_pauli_operator(
-                    w_mat_op, TPBGroupedWeightedPauliOperator.sorted_grouping) \
-                    if w_mat_op is not None else w_commutators[m_u][n_u]
-                m_commutators[m_u][n_u] = op_converter.to_tpb_grouped_weighted_pauli_operator(
-                    m_mat_op, TPBGroupedWeightedPauliOperator.sorted_grouping) \
-                    if m_mat_op is not None else m_commutators[m_u][n_u]
-                v_commutators[m_u][n_u] = op_converter.to_tpb_grouped_weighted_pauli_operator(
-                    v_mat_op, TPBGroupedWeightedPauliOperator.sorted_grouping) \
-                    if v_mat_op is not None else v_commutators[m_u][n_u]
+                if aqua_globals.deprecated_code:
+                    q_commutators[m_u][n_u] = \
+                        old_op_converter.\
+                        to_tpb_grouped_weighted_pauli_operator(
+                            q_mat_op,
+                            OldTPBGroupedWeightedPauliOperator.sorted_grouping) \
+                        if q_mat_op is not None else q_commutators[m_u][n_u]
+                    w_commutators[m_u][n_u] = \
+                        old_op_converter.\
+                        to_tpb_grouped_weighted_pauli_operator(
+                            w_mat_op,
+                            OldTPBGroupedWeightedPauliOperator.sorted_grouping) \
+                        if w_mat_op is not None else w_commutators[m_u][n_u]
+                    m_commutators[m_u][n_u] = \
+                        old_op_converter.\
+                        to_tpb_grouped_weighted_pauli_operator(
+                            m_mat_op,
+                            OldTPBGroupedWeightedPauliOperator.sorted_grouping) \
+                        if m_mat_op is not None else m_commutators[m_u][n_u]
+                    v_commutators[m_u][n_u] = \
+                        old_op_converter.\
+                        to_tpb_grouped_weighted_pauli_operator(
+                            v_mat_op,
+                            OldTPBGroupedWeightedPauliOperator.sorted_grouping) \
+                        if v_mat_op is not None else v_commutators[m_u][n_u]
+                else:
+                    q_commutators[m_u][n_u] = \
+                        op_converter.\
+                        to_tpb_grouped_weighted_pauli_operator(
+                            q_mat_op,
+                            TPBGroupedWeightedPauliOperator.sorted_grouping) \
+                        if q_mat_op is not None else q_commutators[m_u][n_u]
+                    w_commutators[m_u][n_u] = \
+                        op_converter.\
+                        to_tpb_grouped_weighted_pauli_operator(
+                            w_mat_op,
+                            TPBGroupedWeightedPauliOperator.sorted_grouping) \
+                        if w_mat_op is not None else w_commutators[m_u][n_u]
+                    m_commutators[m_u][n_u] = \
+                        op_converter.\
+                        to_tpb_grouped_weighted_pauli_operator(
+                            m_mat_op,
+                            TPBGroupedWeightedPauliOperator.sorted_grouping) \
+                        if m_mat_op is not None else m_commutators[m_u][n_u]
+                    v_commutators[m_u][n_u] = \
+                        op_converter.\
+                        to_tpb_grouped_weighted_pauli_operator(
+                            v_mat_op,
+                            TPBGroupedWeightedPauliOperator.sorted_grouping) \
+                        if v_mat_op is not None else v_commutators[m_u][n_u]
 
         available_entry = 0
         if not self._z2_symmetries.is_empty():
@@ -328,10 +385,11 @@ class QEquationOfMotion:
             numpy.ndarray: W matrix
 
         Raises:
-            AquaError: wrong setting for wave_fn and quantum_instance
+            QiskitChemistryError: wrong setting for wave_fn and quantum_instance
         """
         if isinstance(wave_fn, QuantumCircuit) and quantum_instance is None:
-            raise AquaError("quantum_instance is required when wavn_fn is a QuantumCircuit.")
+            raise QiskitChemistryError(
+                "quantum_instance is required when wavn_fn is a QuantumCircuit.")
 
         size = len(excitations_list)
         logger.info('EoM matrix size is %sx%s.', size, size)
@@ -489,12 +547,18 @@ class QEquationOfMotion:
         fer_op = FermionicOperator(h_1, h_2)
         qubit_op = fer_op.mapping(qubit_mapping)
         if two_qubit_reduction:
-            qubit_op = Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
+            if aqua_globals.deprecated_code:
+                qubit_op = OldZ2Symmetries.two_qubit_reduction(qubit_op, num_particles)
+            else:
+                qubit_op = Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
 
         commutativities = []
         if not z2_symmetries.is_empty():
             for symmetry in z2_symmetries.symmetries:
-                symmetry_op = WeightedPauliOperator(paulis=[[1.0, symmetry]])
+                if aqua_globals.deprecated_code:
+                    symmetry_op = OldWeightedPauliOperator(paulis=[[1.0, symmetry]])
+                else:
+                    symmetry_op = WeightedPauliOperator(paulis=[[1.0, symmetry]])
                 commuting = qubit_op.commute_with(symmetry_op)
                 anticommuting = qubit_op.anticommute_with(symmetry_op)
 
@@ -504,13 +568,13 @@ class QEquationOfMotion:
                     elif anticommuting:
                         commutativities.append(False)
                 else:
-                    raise AquaError("Symmetry {} is nor commute neither anti-commute "
-                                    "to exciting operator.".format(symmetry.to_label()))
+                    raise QiskitChemistryError("Symmetry {} is nor commute neither anti-commute "
+                                               "to exciting operator.".format(symmetry.to_label()))
 
         return qubit_op, commutativities
 
     @staticmethod
-    def _build_commutator_rountine(params, operator, z2_symmetries):
+    def _build_commutator_routine(params, operator, z2_symmetries):
         m_u, n_u, left_op, right_op_1, right_op_2 = params
         if left_op is None:
             q_mat_op = None
@@ -525,8 +589,12 @@ class QEquationOfMotion:
                 v_mat_op = None
             else:
                 if right_op_1 is not None:
-                    q_mat_op = commutator(left_op, operator, right_op_1)
-                    w_mat_op = commutator(left_op, right_op_1)
+                    if aqua_globals.deprecated_code:
+                        q_mat_op = old_commutator(left_op, operator, right_op_1)
+                        w_mat_op = old_commutator(left_op, right_op_1)
+                    else:
+                        q_mat_op = commutator(left_op, operator, right_op_1)
+                        w_mat_op = commutator(left_op, right_op_1)
                     q_mat_op = None if q_mat_op.is_empty() else q_mat_op
                     w_mat_op = None if w_mat_op.is_empty() else w_mat_op
                 else:
@@ -534,8 +602,12 @@ class QEquationOfMotion:
                     w_mat_op = None
 
                 if right_op_2 is not None:
-                    m_mat_op = commutator(left_op, operator, right_op_2)
-                    v_mat_op = commutator(left_op, right_op_2)
+                    if aqua_globals.deprecated_code:
+                        m_mat_op = old_commutator(left_op, operator, right_op_2)
+                        v_mat_op = old_commutator(left_op, right_op_2)
+                    else:
+                        m_mat_op = commutator(left_op, operator, right_op_2)
+                        v_mat_op = commutator(left_op, right_op_2)
                     m_mat_op = None if m_mat_op.is_empty() else m_mat_op
                     v_mat_op = None if v_mat_op.is_empty() else v_mat_op
                 else:

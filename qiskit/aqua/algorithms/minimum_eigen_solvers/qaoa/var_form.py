@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -13,7 +13,7 @@
 """Global X phases and parameterized problem hamiltonian."""
 
 from typing import Optional, Union, cast
-
+import warnings
 import numpy as np
 
 from qiskit import QuantumCircuit
@@ -50,6 +50,13 @@ class QAOAVarForm(VariationalForm):
         Raises:
             TypeError: invalid input
         """
+        warnings.warn(
+            'qiskit.aqua.algorithms.minimum_eigen_solvers.qaoa.QAOAVarForm is deprecated '
+            'as of 0.9.0, and will be '
+            'removed no earlier than 3 months after the release date. '
+            'Please use qiskit.algorithms.minimum_eigen_solvers.qaoa.QAOAVarForm.',
+            DeprecationWarning)
+
         super().__init__()
         self._cost_operator = cost_operator
         self._num_qubits = cost_operator.num_qubits

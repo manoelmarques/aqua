@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -55,7 +55,7 @@ class TestReadmeSample(QiskitChemistryTestCase):
 
         from qiskit.chemistry import FermionicOperator
         from qiskit.chemistry.drivers import PySCFDriver, UnitsType
-        from qiskit.aqua.operators import Z2Symmetries
+        from qiskit.opflow import Z2Symmetries
 
         # Use PySCF, a classical computational chemistry software
         # package, to compute the one-body and two-body integrals in
@@ -75,7 +75,7 @@ class TestReadmeSample(QiskitChemistryTestCase):
         num_qubits = qubit_op.num_qubits
 
         # setup a classical optimizer for VQE
-        from qiskit.aqua.components.optimizers import L_BFGS_B
+        from qiskit.algorithms.optimizers import L_BFGS_B
         optimizer = L_BFGS_B()
 
         # setup the initial state for the variational form
@@ -89,15 +89,15 @@ class TestReadmeSample(QiskitChemistryTestCase):
         # add the initial state
         var_form.compose(init_state, front=True)
 
-        # setup and run VQE
-        from qiskit.aqua.algorithms import VQE
-        algorithm = VQE(qubit_op, var_form, optimizer)
-
         # set the backend for the quantum computation
         from qiskit import Aer
         backend = Aer.get_backend('statevector_simulator')
 
-        result = algorithm.run(backend)
+        # setup and run VQE
+        from qiskit.algorithms import VQE
+        algorithm = VQE(var_form, optimizer, quantum_instance=backend)
+
+        result = algorithm.compute_minimum_eigenvalue(qubit_op)
         print(result.eigenvalue.real)
 
         # ----------------------------------------------------------------------

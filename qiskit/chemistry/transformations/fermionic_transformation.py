@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -23,9 +23,17 @@ from enum import Enum
 import numpy as np
 
 from qiskit.tools import parallel_map
-from qiskit.aqua import AquaError, aqua_globals
-from qiskit.aqua.operators import Z2Symmetries, WeightedPauliOperator, OperatorBase
-from qiskit.aqua.algorithms import EigensolverResult, MinimumEigensolverResult
+from qiskit.aqua import aqua_globals
+from qiskit.aqua.operators import OperatorBase as OldOperatorBase
+from qiskit.opflow import OperatorBase
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
+from qiskit.aqua.algorithms import EigensolverResult as OldEigensolverResult
+from qiskit.aqua.algorithms import MinimumEigensolverResult \
+    as OldMinimumEigensolverResult
+from qiskit.aqua.operators import Z2Symmetries as OldZ2Symmetries
+from qiskit.opflow import Z2Symmetries
+from qiskit.algorithms import EigensolverResult, MinimumEigensolverResult
 from qiskit.chemistry import QiskitChemistryError, QMolecule
 from qiskit.chemistry.fermionic_operator import FermionicOperator
 from qiskit.chemistry.drivers import BaseDriver
@@ -137,7 +145,10 @@ class FermionicTransformation(Transformation):
 
     def transform(self, driver: BaseDriver,
                   aux_operators: Optional[List[FermionicOperator]] = None
-                  ) -> Tuple[OperatorBase, List[OperatorBase]]:
+                  ) -> Tuple[Union[OldOperatorBase,
+                                   OperatorBase],
+                             List[Union[OldOperatorBase,
+                                        OperatorBase]]]:
         """Transformation from the ``driver`` to a qubit operator.
 
         Args:
@@ -152,14 +163,21 @@ class FermionicTransformation(Transformation):
 
         # the internal method may still return legacy operators which is why we make sure to convert
         # all of the operator to the operator flow
-        ops = ops.to_opflow() if isinstance(ops, WeightedPauliOperator) else ops
-        aux_ops = [a.to_opflow() if isinstance(a, WeightedPauliOperator) else a for a in aux_ops]
+        ops = ops.to_opflow() if isinstance(ops, (OldWeightedPauliOperator,
+                                                  WeightedPauliOperator)) else ops
+        aux_ops = [a.to_opflow()
+                   if isinstance(a, (OldWeightedPauliOperator,
+                                     WeightedPauliOperator)) else a for a in aux_ops]
 
         return ops, aux_ops
 
     def _do_transform(self, qmolecule: QMolecule,
                       aux_operators: Optional[List[FermionicOperator]] = None
-                      ) -> Tuple[WeightedPauliOperator, List[WeightedPauliOperator]]:
+                      ) -> Tuple[Union[OldWeightedPauliOperator,
+                                       WeightedPauliOperator],
+                                 List[Union[
+                                     OldWeightedPauliOperator,
+                                     WeightedPauliOperator]]]:
         """
         Args:
             qmolecule: qmolecule
@@ -268,8 +286,7 @@ class FermionicTransformation(Transformation):
 
         logger.debug('Converting to qubit using %s mapping', self._qubit_mapping)
         qubit_op = FermionicTransformation._map_fermionic_operator_to_qubit(
-            fer_op, self._qubit_mapping, new_nel, self._two_qubit_reduction
-            )
+            fer_op, self._qubit_mapping, new_nel, self._two_qubit_reduction)
         qubit_op.name = 'Fermionic Operator'
 
         logger.debug('  num paulis: %s, num qubits: %s', len(qubit_op.paulis), qubit_op.num_qubits)
@@ -286,8 +303,7 @@ class FermionicTransformation(Transformation):
 
             """
             aux_qop = FermionicTransformation._map_fermionic_operator_to_qubit(
-                aux_op, self._qubit_mapping, new_nel, self._two_qubit_reduction
-                )
+                aux_op, self._qubit_mapping, new_nel, self._two_qubit_reduction)
             aux_qop.name = name
 
             aux_ops.append(aux_qop)
@@ -307,7 +323,8 @@ class FermionicTransformation(Transformation):
             self._has_dipole_moments = True
 
             def _dipole_op(dipole_integrals: np.ndarray, axis: str) \
-                    -> Tuple[WeightedPauliOperator, float, float]:
+                    -> Tuple[Union[OldWeightedPauliOperator,
+                                   WeightedPauliOperator], float, float]:
                 """
                 Dipole operators
 
@@ -369,7 +386,10 @@ class FermionicTransformation(Transformation):
         self._molecule_info['two_qubit_reduction'] = reduction
         self._untapered_qubit_op = qubit_op
 
-        z2symmetries = Z2Symmetries([], [], [], None)
+        if aqua_globals.deprecated_code:
+            z2symmetries = OldZ2Symmetries([], [], [], None)
+        else:
+            z2symmetries = Z2Symmetries([], [], [], None)
         if self._z2symmetry_reduction is not None:
             logger.debug('Processing z2 symmetries')
             qubit_op, aux_ops, z2symmetries = self._process_z2symmetry_reduction(qubit_op, aux_ops)
@@ -384,8 +404,11 @@ class FermionicTransformation(Transformation):
         return self._untapered_qubit_op
 
     def _process_z2symmetry_reduction(self,
-                                      qubit_op: WeightedPauliOperator,
-                                      aux_ops: List[WeightedPauliOperator]) -> Tuple:
+                                      qubit_op: Union[OldWeightedPauliOperator,
+                                                      WeightedPauliOperator],
+                                      aux_ops:
+                                      List[Union[OldWeightedPauliOperator,
+                                                 WeightedPauliOperator]]) -> Tuple:
         """
         Implement z2 symmetries in the qubit operator
 
@@ -399,12 +422,18 @@ class FermionicTransformation(Transformation):
         Raises:
             QiskitChemistryError: Invalid input
         """
-        z2_symmetries = Z2Symmetries.find_Z2_symmetries(qubit_op)
+        if aqua_globals.deprecated_code:
+            z2_symmetries = OldZ2Symmetries.find_Z2_symmetries(qubit_op)
+        else:
+            z2_symmetries = Z2Symmetries.find_Z2_symmetries(qubit_op)
         if z2_symmetries.is_empty():
             logger.debug('No Z2 symmetries found')
             z2_qubit_op = qubit_op
             z2_aux_ops = aux_ops
-            z2_symmetries = Z2Symmetries([], [], [], None)
+            if aqua_globals.deprecated_code:
+                z2_symmetries = OldZ2Symmetries([], [], [], None)
+            else:
+                z2_symmetries = Z2Symmetries([], [], [], None)
         else:
             logger.debug('%s Z2 symmetries found: %s', len(z2_symmetries.symmetries),
                          ','.join([symm.to_label() for symm in z2_symmetries.symmetries]))
@@ -413,7 +442,11 @@ class FermionicTransformation(Transformation):
             logger.debug('Checking operators commute with symmetry:')
             symmetry_ops = []
             for symmetry in z2_symmetries.symmetries:
-                symmetry_ops.append(WeightedPauliOperator(paulis=[[1.0, symmetry]]))
+                if aqua_globals.deprecated_code:
+                    o_p = OldWeightedPauliOperator(paulis=[[1.0, symmetry]])
+                else:
+                    o_p = WeightedPauliOperator(paulis=[[1.0, symmetry]])
+                symmetry_ops.append(o_p)
             commutes = FermionicTransformation._check_commutes(symmetry_ops, qubit_op)
             if not commutes:
                 raise QiskitChemistryError('Z2 symmetry failure main operator must commute '
@@ -458,8 +491,10 @@ class FermionicTransformation(Transformation):
         return z2_qubit_op, z2_aux_ops, z2_symmetries
 
     @staticmethod
-    def _check_commutes(cliffords: List[WeightedPauliOperator],
-                        operator: WeightedPauliOperator) -> bool:
+    def _check_commutes(cliffords: List[Union[OldWeightedPauliOperator,
+                                              WeightedPauliOperator]],
+                        operator: Union[OldWeightedPauliOperator,
+                                        WeightedPauliOperator]) -> bool:
         """
         Check commutations
 
@@ -499,7 +534,8 @@ class FermionicTransformation(Transformation):
         return partial(filter_criterion, self)
 
     @staticmethod
-    def _pick_sector(z2_symmetries: Z2Symmetries, hf_str: np.ndarray) -> Z2Symmetries:
+    def _pick_sector(z2_symmetries: Union[OldZ2Symmetries, Z2Symmetries],
+                     hf_str: np.ndarray) -> Union[OldZ2Symmetries, Z2Symmetries]:
         """
         Based on Hartree-Fock bit string and found symmetries to determine the sector.
         The input z2 symmetries will be mutated with the determined tapering values.
@@ -520,8 +556,13 @@ class FermionicTransformation(Transformation):
         z2_symmetries.tapering_values = taper_coef
         return z2_symmetries
 
-    def interpret(self, raw_result: Union[EigenstateResult, EigensolverResult,
-                                          MinimumEigensolverResult]) -> ElectronicStructureResult:
+    def interpret(self,
+                  raw_result: Union[EigenstateResult,
+                                    OldEigensolverResult,
+                                    EigensolverResult,
+                                    OldMinimumEigensolverResult,
+                                    MinimumEigensolverResult]) \
+            -> ElectronicStructureResult:
         """Interprets an EigenstateResult in the context of this transformation.
 
         Args:
@@ -533,13 +574,14 @@ class FermionicTransformation(Transformation):
         eigenstate_result = None
         if isinstance(raw_result, EigenstateResult):
             eigenstate_result = raw_result
-        elif isinstance(raw_result, EigensolverResult):
+        elif isinstance(raw_result, (OldEigensolverResult, EigensolverResult)):
             eigenstate_result = EigenstateResult()
             eigenstate_result.raw_result = raw_result
             eigenstate_result.eigenenergies = raw_result.eigenvalues
             eigenstate_result.eigenstates = raw_result.eigenstates
             eigenstate_result.aux_operator_eigenvalues = raw_result.aux_operator_eigenvalues
-        elif isinstance(raw_result, MinimumEigensolverResult):
+        elif isinstance(raw_result, (OldMinimumEigensolverResult,
+                                     MinimumEigensolverResult)):
             eigenstate_result = EigenstateResult()
             eigenstate_result.raw_result = raw_result
             eigenstate_result.eigenenergies = np.asarray([raw_result.eigenvalue])
@@ -547,7 +589,7 @@ class FermionicTransformation(Transformation):
             eigenstate_result.aux_operator_eigenvalues = [raw_result.aux_operator_eigenvalues]
 
         result = ElectronicStructureResult(eigenstate_result.data)
-        result.computed_energies = np.asarray([e.real for e in eigenstate_result.eigenenergies])
+        result.computed_energies = np.asarray([e.real for e in result.eigenenergies])
         result.hartree_fock_energy = self._hf_energy
         result.nuclear_repulsion_energy = self._nuclear_repulsion_energy
         if self._nuclear_dipole_moment is not None:
@@ -631,7 +673,9 @@ class FermionicTransformation(Transformation):
     def _map_fermionic_operator_to_qubit(fer_op: FermionicOperator,
                                          qubit_mapping: str,
                                          num_particles: List[int],
-                                         two_qubit_reduction: bool) -> WeightedPauliOperator:
+                                         two_qubit_reduction: bool) \
+            -> Union[OldWeightedPauliOperator,
+                     WeightedPauliOperator]:
         """
 
         Args:
@@ -646,7 +690,12 @@ class FermionicTransformation(Transformation):
 
         qubit_op = fer_op.mapping(map_type=qubit_mapping, threshold=0.00000001)
         if qubit_mapping == 'parity' and two_qubit_reduction:
-            qubit_op = Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
+            if aqua_globals.deprecated_code:
+                qubit_op = \
+                    OldZ2Symmetries.two_qubit_reduction(qubit_op, num_particles)
+            else:
+                qubit_op = \
+                    Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
         return qubit_op
 
     @staticmethod
@@ -664,12 +713,20 @@ class FermionicTransformation(Transformation):
         fer_op = FermionicOperator(h_1, h_2)
         qubit_op = fer_op.mapping(qubit_mapping)
         if qubit_mapping == 'parity' and two_qubit_reduction:
-            qubit_op = Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
+            if aqua_globals.deprecated_code:
+                qubit_op = \
+                    OldZ2Symmetries.two_qubit_reduction(qubit_op, num_particles)
+            else:
+                qubit_op = \
+                    Z2Symmetries.two_qubit_reduction(qubit_op, num_particles)
 
         commutativities = []
         if not z2_symmetries.is_empty():
             for symmetry in z2_symmetries.symmetries:
-                symmetry_op = WeightedPauliOperator(paulis=[[1.0, symmetry]])
+                if aqua_globals.deprecated_code:
+                    symmetry_op = OldWeightedPauliOperator(paulis=[[1.0, symmetry]])
+                else:
+                    symmetry_op = WeightedPauliOperator(paulis=[[1.0, symmetry]])
                 commuting = qubit_op.commute_with(symmetry_op)
                 anticommuting = qubit_op.anticommute_with(symmetry_op)
 
@@ -679,13 +736,16 @@ class FermionicTransformation(Transformation):
                     elif anticommuting:
                         commutativities.append(False)
                 else:
-                    raise AquaError("Symmetry {} is nor commute neither anti-commute "
-                                    "to exciting operator.".format(symmetry.to_label()))
+                    raise QiskitChemistryError(
+                        "Symmetry {} is nor commute neither anti-commute "
+                        "to exciting operator.".format(symmetry.to_label()))
 
         return qubit_op, commutativities
 
     def build_hopping_operators(self, excitations: Union[str, List[List[int]]] = 'sd'
-                                ) -> Tuple[Dict[str, WeightedPauliOperator],
+                                ) -> Tuple[Dict[str,
+                                                Union[OldWeightedPauliOperator,
+                                                      WeightedPauliOperator]],
                                            Dict[str, List[bool]],
                                            Dict[str, List[Any]]]:
         """Builds the product of raising and lowering operators (basic excitation operators)
@@ -716,7 +776,8 @@ class FermionicTransformation(Transformation):
         # mus, nus = np.triu_indices(size)
 
         # build all hopping operators
-        hopping_operators: Dict[str, WeightedPauliOperator] = {}
+        hopping_operators: Dict[str, Union[OldWeightedPauliOperator,
+                                           WeightedPauliOperator]] = {}
         type_of_commutativities: Dict[str, List[bool]] = {}
         excitation_indices = {}
         to_be_executed_list = []

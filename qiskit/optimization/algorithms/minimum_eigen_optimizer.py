@@ -14,9 +14,13 @@
 from typing import Optional, Any, Union, List, cast
 
 import numpy as np
-
-from qiskit.aqua.algorithms import MinimumEigensolver, MinimumEigensolverResult
-from qiskit.aqua.operators import StateFn, DictStateFn
+from qiskit.aqua.algorithms import MinimumEigensolverResult as OldMinimumEigensolverResult
+from qiskit.algorithms import MinimumEigensolverResult
+from qiskit.aqua.algorithms import MinimumEigensolver as OldMinimumEigensolver
+from qiskit.algorithms import MinimumEigensolver
+from qiskit.aqua.operators import StateFn as OldStateFn
+from qiskit.aqua.operators import DictStateFn as OldDictStateFn
+from qiskit.opflow import StateFn, DictStateFn
 from .optimization_algorithm import (OptimizationResultStatus, OptimizationAlgorithm,
                                      OptimizationResult, SolutionSample)
 from .. import QiskitOptimizationError
@@ -30,7 +34,8 @@ class MinimumEigenOptimizationResult(OptimizationResult):
     def __init__(self, x: Union[List[float], np.ndarray], fval: float, variables: List[Variable],
                  status: OptimizationResultStatus,
                  samples: Optional[List[SolutionSample]] = None,
-                 min_eigen_solver_result: Optional[MinimumEigensolverResult] = None,
+                 min_eigen_solver_result: Optional[Union[OldMinimumEigensolverResult,
+                                                         MinimumEigensolverResult]] = None,
                  raw_samples: Optional[List[SolutionSample]] = None) -> None:
         """
         Args:
@@ -50,7 +55,8 @@ class MinimumEigenOptimizationResult(OptimizationResult):
         self._raw_samples = raw_samples
 
     @property
-    def min_eigen_solver_result(self) -> MinimumEigensolverResult:
+    def min_eigen_solver_result(self) -> Union[OldMinimumEigensolverResult,
+                                               MinimumEigensolverResult]:
         """Returns a result object obtained from the instance of :class:`MinimumEigensolver`."""
         return self._min_eigen_solver_result
 
@@ -101,7 +107,7 @@ class MinimumEigenOptimizer(OptimizationAlgorithm):
 
     .. code-block::
 
-        from qiskit.aqua.algorithms import QAOA
+        from qiskit.algorithms import QAOA
         from qiskit.optimization.problems import QuadraticProgram
         from qiskit.optimization.algorithms import MinimumEigenOptimizer
         problem = QuadraticProgram()
@@ -112,7 +118,9 @@ class MinimumEigenOptimizer(OptimizationAlgorithm):
         result = optimizer.solve(problem)
     """
 
-    def __init__(self, min_eigen_solver: MinimumEigensolver, penalty: Optional[float] = None,
+    def __init__(self, min_eigen_solver: Union[OldMinimumEigensolver,
+                                               MinimumEigensolver],
+                 penalty: Optional[float] = None,
                  converters: Optional[Union[QuadraticProgramConverter,
                                             List[QuadraticProgramConverter]]] = None) -> None:
         """
@@ -156,16 +164,22 @@ class MinimumEigenOptimizer(OptimizationAlgorithm):
         return QuadraticProgramToQubo.get_compatibility_msg(problem)
 
     @property
-    def min_eigen_solver(self) -> MinimumEigensolver:
+    def min_eigen_solver(self) -> Union[OldMinimumEigensolver,
+                                        MinimumEigensolver]:
         """Returns the minimum eigensolver."""
         return self._min_eigen_solver
 
     @min_eigen_solver.setter
-    def min_eigen_solver(self, min_eigen_solver: MinimumEigensolver) -> None:
+    def min_eigen_solver(self,
+                         min_eigen_solver: Union[
+                             OldMinimumEigensolver,
+                             MinimumEigensolver]) -> None:
         """Sets the minimum eigensolver."""
         self._min_eigen_solver = min_eigen_solver
 
-    def solve(self, problem: QuadraticProgram) -> MinimumEigenOptimizationResult:
+    # pylint: disable=arguments-differ
+    def solve(self,
+              problem: QuadraticProgram) -> MinimumEigenOptimizationResult:
         """Tries to solves the given problem using the optimizer.
 
         Runs the optimizer to try to solve the optimization problem.
@@ -188,8 +202,9 @@ class MinimumEigenOptimizer(OptimizationAlgorithm):
         operator, offset = problem_.to_ising()
 
         # only try to solve non-empty Ising Hamiltonians
-        x = None  # type: Optional[Any]
-        eigen_result = None  # type: MinimumEigensolverResult
+        x: Optional[Any] = None
+        eigen_result: Union[OldMinimumEigensolverResult,
+                            MinimumEigensolverResult] = None
         if operator.num_qubits > 0:
 
             # approximate ground state of operator using min eigen solver
@@ -254,7 +269,9 @@ class MinimumEigenOptimizer(OptimizationAlgorithm):
                       key=lambda v: (v.status.value, problem.objective.sense.value * v.fval))
 
 
-def _eigenvector_to_solutions(eigenvector: Union[dict, np.ndarray, StateFn],
+def _eigenvector_to_solutions(eigenvector: Union[dict,
+                                                 np.ndarray,
+                                                 Union[OldStateFn, StateFn]],
                               qubo: QuadraticProgram,
                               min_probability: float = 1e-6,
                               ) -> List[SolutionSample]:
@@ -286,9 +303,9 @@ def _eigenvector_to_solutions(eigenvector: Union[dict, np.ndarray, StateFn],
     Raises:
         TypeError: If the type of eigenvector is not supported.
     """
-    if isinstance(eigenvector, DictStateFn):
+    if isinstance(eigenvector, (OldDictStateFn, DictStateFn)):
         eigenvector = {bitstr: val ** 2 for (bitstr, val) in eigenvector.primitive.items()}
-    elif isinstance(eigenvector, StateFn):
+    elif isinstance(eigenvector, (OldStateFn, StateFn)):
         eigenvector = eigenvector.to_matrix()
 
     def generate_solution(bitstr, qubo, probability):

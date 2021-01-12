@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,9 +16,14 @@ from abc import ABC, abstractmethod
 from typing import Tuple, List, Optional, Union, Callable, Dict, Any
 
 import numpy as np
-
-from qiskit.aqua.algorithms import EigensolverResult, MinimumEigensolverResult
-from qiskit.aqua.operators import OperatorBase, WeightedPauliOperator
+from qiskit.aqua.operators import OperatorBase as OldOperatorBase
+from qiskit.opflow import OperatorBase
+from qiskit.aqua.operators import WeightedPauliOperator as OldWeightedPauliOperator
+from qiskit.opflow import WeightedPauliOperator
+from qiskit.aqua.algorithms import EigensolverResult as OldEigensolverResult
+from qiskit.aqua.algorithms import MinimumEigensolverResult \
+    as OldMinimumEigensolverResult
+from qiskit.algorithms import EigensolverResult, MinimumEigensolverResult
 from qiskit.chemistry import FermionicOperator, BosonicOperator
 from qiskit.chemistry.drivers import BaseDriver
 from qiskit.chemistry.results import EigenstateResult
@@ -31,7 +36,10 @@ class Transformation(ABC):
     def transform(self, driver: BaseDriver,
                   aux_operators: Optional[Union[List[FermionicOperator],
                                                 List[BosonicOperator]]] = None
-                  ) -> Tuple[OperatorBase, List[OperatorBase]]:
+                  ) -> Tuple[Union[OldOperatorBase,
+                                   OperatorBase],
+                             List[Union[OldOperatorBase,
+                                        OperatorBase]]]:
         """Transformation from the ``driver`` to a qubit operator.
 
         Args:
@@ -54,8 +62,13 @@ class Transformation(ABC):
         return None
 
     @abstractmethod
-    def interpret(self, raw_result: Union[EigenstateResult, EigensolverResult,
-                                          MinimumEigensolverResult]) -> EigenstateResult:
+    def interpret(self,
+                  raw_result: Union[EigenstateResult,
+                                    OldEigensolverResult,
+                                    EigensolverResult,
+                                    OldMinimumEigensolverResult,
+                                    MinimumEigensolverResult]) \
+            -> EigenstateResult:
         """Interprets an EigenstateResult in the context of this transformation.
 
         Args:
@@ -74,7 +87,9 @@ class Transformation(ABC):
 
     @abstractmethod
     def build_hopping_operators(self, excitations: Union[str, List[List[int]]] = 'sd'
-                                ) -> Tuple[Dict[str, WeightedPauliOperator],
+                                ) -> Tuple[Dict[str,
+                                                Union[OldWeightedPauliOperator,
+                                                      WeightedPauliOperator]],
                                            Dict[str, List[bool]],
                                            Dict[str, List[Any]]]:
         """Builds the product of raising and lowering operators (basic excitation operators)

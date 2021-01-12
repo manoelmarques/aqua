@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -18,12 +18,15 @@ from copy import deepcopy
 from typing import Optional, Dict, Union, List, cast
 
 import numpy as np
+
 from qiskit import QuantumCircuit, QuantumRegister
-from qiskit.aqua import QuantumInstance, aqua_globals
-from qiskit.aqua.algorithms.amplitude_amplifiers.grover import Grover
+from qiskit.aqua import aqua_globals
 from qiskit.circuit.library import QuadraticForm
 from qiskit.providers import Backend, BaseBackend
-
+from qiskit.aqua import QuantumInstance as OldQuantumInstance
+from qiskit.utils import QuantumInstance
+from qiskit.aqua.algorithms import Grover as OldGrover
+from qiskit.algorithms import Grover
 from .optimization_algorithm import (OptimizationResultStatus, OptimizationAlgorithm,
                                      OptimizationResult)
 from ..converters.quadratic_program_to_qubo import QuadraticProgramToQubo, QuadraticProgramConverter
@@ -37,7 +40,9 @@ class GroverOptimizer(OptimizationAlgorithm):
     """Uses Grover Adaptive Search (GAS) to find the minimum of a QUBO function."""
 
     def __init__(self, num_value_qubits: int, num_iterations: int = 3,
-                 quantum_instance: Optional[Union[BaseBackend, Backend, QuantumInstance]] = None,
+                 quantum_instance: Optional[Union[BaseBackend, Backend,
+                                                  Union[OldQuantumInstance,
+                                                        QuantumInstance]]] = None,
                  converters: Optional[Union[QuadraticProgramConverter,
                                             List[QuadraticProgramConverter]]] = None,
                  penalty: Optional[float] = None) -> None:
@@ -67,7 +72,8 @@ class GroverOptimizer(OptimizationAlgorithm):
         self._converters = self._prepare_converters(converters, penalty)
 
     @property
-    def quantum_instance(self) -> QuantumInstance:
+    def quantum_instance(self) -> Union[OldQuantumInstance,
+                                        QuantumInstance]:
         """The quantum instance to run the circuits.
 
         Returns:
@@ -77,14 +83,20 @@ class GroverOptimizer(OptimizationAlgorithm):
 
     @quantum_instance.setter
     def quantum_instance(self, quantum_instance: Union[Backend,
-                                                       BaseBackend, QuantumInstance]) -> None:
+                                                       BaseBackend,
+                                                       Union[OldQuantumInstance,
+                                                             QuantumInstance]]) \
+            -> None:
         """Set the quantum instance used to run the circuits.
 
         Args:
             quantum_instance: The quantum instance to be used in the algorithm.
         """
         if isinstance(quantum_instance, (BaseBackend, Backend)):
-            self._quantum_instance = QuantumInstance(quantum_instance)
+            if aqua_globals.deprecated_code:
+                self._quantum_instance = OldQuantumInstance(quantum_instance)
+            else:
+                self._quantum_instance = QuantumInstance(quantum_instance)
         else:
             self._quantum_instance = quantum_instance
 
@@ -132,7 +144,9 @@ class GroverOptimizer(OptimizationAlgorithm):
 
         return oracle, is_good_state
 
-    def solve(self, problem: QuadraticProgram) -> OptimizationResult:
+    # pylint: disable=arguments-differ
+    def solve(self,
+              problem: QuadraticProgram) -> OptimizationResult:
         """Tries to solves the given problem using the grover optimizer.
 
         Runs the optimizer to try to solve the optimization problem. If the problem cannot be,
@@ -211,9 +225,14 @@ class GroverOptimizer(OptimizationAlgorithm):
                 rotations += rotation_count
                 # Apply Grover's Algorithm to find values below the threshold.
                 # TODO: Utilize Grover's incremental feature - requires changes to Grover.
-                grover = Grover(oracle,
-                                state_preparation=a_operator,
-                                good_state=is_good_state)
+                if aqua_globals.deprecated_code:
+                    grover = OldGrover(oracle,
+                                       state_preparation=a_operator,
+                                       good_state=is_good_state)
+                else:
+                    grover = Grover(oracle,
+                                    state_preparation=a_operator,
+                                    good_state=is_good_state)
                 circuit = grover.construct_circuit(rotation_count, measurement=measurement)
 
                 # Get the next outcome.

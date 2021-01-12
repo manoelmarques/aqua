@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -17,7 +17,7 @@ from typing import Optional, Union, List
 import logging
 import numpy as np
 from qiskit import QuantumRegister, QuantumCircuit
-from qiskit.aqua.utils.validation import validate_min, validate_in_set
+from qiskit.utils.validation import validate_min, validate_in_set
 from qiskit.aqua.components.initial_states import InitialState
 from qiskit.chemistry.circuit.library.initial_states.hartree_fock import hartree_fock_bitstring
 

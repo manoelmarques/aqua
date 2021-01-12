@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -17,9 +17,9 @@ import unittest
 from test.chemistry import QiskitChemistryTestCase
 
 from qiskit import BasicAer
-from qiskit.aqua import QuantumInstance
-from qiskit.aqua.operators import AerPauliExpectation
-from qiskit.aqua.components.optimizers import COBYLA
+from qiskit.utils import QuantumInstance
+from qiskit.opflow import AerPauliExpectation
+from qiskit.algorithms.optimizers import COBYLA
 from qiskit.chemistry import QiskitChemistryError
 from qiskit.chemistry.drivers import PySCFDriver, UnitsType
 from qiskit.chemistry.transformations import FermionicTransformation

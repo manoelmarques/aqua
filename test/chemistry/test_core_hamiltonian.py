@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2018, 2020.
+# (C) Copyright IBM 2018, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -16,7 +16,7 @@ import warnings
 import unittest
 
 from test.chemistry import QiskitChemistryTestCase
-from qiskit.aqua.operators import WeightedPauliOperator
+from qiskit.opflow import PauliSumOp
 from qiskit.chemistry import QiskitChemistryError
 from qiskit.chemistry.drivers import PySCFDriver, UnitsType
 from qiskit.chemistry.core import Hamiltonian, TransformationType, QubitMappingType
@@ -52,10 +52,11 @@ class TestCoreHamiltonian(QiskitChemistryTestCase):
                                               'two_qubit_reduction': actual_two_qubit_reduction})
 
     def _validate_input_object(self, qubit_op, num_qubits=4, num_paulis=15):
-        self.assertTrue(isinstance(qubit_op, WeightedPauliOperator))
+        self.assertTrue(isinstance(qubit_op, PauliSumOp))
         self.assertIsNotNone(qubit_op)
         self.assertEqual(qubit_op.num_qubits, num_qubits)
-        self.assertEqual(len(qubit_op.to_dict()['paulis']), num_paulis)
+        # self.assertEqual(len(qubit_op.to_dict()['paulis']), num_paulis)
+        self.assertEqual(len(qubit_op), num_paulis)
 
     def test_output(self):
         """ output test """

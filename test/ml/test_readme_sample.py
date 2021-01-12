@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -35,9 +35,9 @@ class TestReadmeSample(QiskitMLTestCase):
         # --- Exact copy of sample code ----------------------------------------
 
         from qiskit import BasicAer
-        from qiskit.aqua import QuantumInstance, aqua_globals
+        from qiskit.utils import QuantumInstance, aqua_globals
         from qiskit.aqua.algorithms import VQC
-        from qiskit.aqua.components.optimizers import COBYLA
+        from qiskit.algorithms.optimizers import COBYLA
         from qiskit.aqua.components.feature_maps import RawFeatureVector
         from qiskit.ml.datasets import wine
         from qiskit.circuit.library import TwoLocal

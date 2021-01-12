@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2020.
+# (C) Copyright IBM 2020, 2021.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -15,18 +15,18 @@
 import warnings
 import unittest
 
-from test.aqua import QiskitAquaTestCase
+from test.chemistry import QiskitChemistryTestCase
 import numpy as np
 
-from qiskit.aqua.algorithms import NumPyEigensolver
-from qiskit.aqua.operators import Z2Symmetries
+from qiskit.algorithms import NumPyEigensolver
+from qiskit.opflow import Z2Symmetries, LegacyBaseOperator
 from qiskit.chemistry import QiskitChemistryError
 from qiskit.chemistry.drivers import PySCFDriver, UnitsType
 from qiskit.chemistry.core import Hamiltonian, TransformationType, QubitMappingType
 from qiskit.chemistry.algorithms import QEomEE
 
 
-class TestEomEE(QiskitAquaTestCase):
+class TestEomEE(QiskitChemistryTestCase):
     """Test case for Eom EE."""
     def setUp(self):
         """Setup."""
@@ -44,8 +44,10 @@ class TestEomEE(QiskitAquaTestCase):
                                orbital_reduction=[])
             warnings.filterwarnings('always', category=DeprecationWarning)
             qubit_op, _ = core.run(self.molecule)
-            exact_eigensolver = NumPyEigensolver(qubit_op, k=2 ** qubit_op.num_qubits)
-            result = exact_eigensolver.run()
+            if isinstance(qubit_op, LegacyBaseOperator):
+                qubit_op = qubit_op.to_opflow()
+            exact_eigensolver = NumPyEigensolver(k=2 ** qubit_op.num_qubits)
+            result = exact_eigensolver.compute_eigenvalues(qubit_op)
             self.reference = result.eigenvalues.real
         except QiskitChemistryError:
             self.skipTest('PYSCF driver does not appear to be installed')
@@ -62,14 +64,13 @@ class TestEomEE(QiskitAquaTestCase):
                            orbital_reduction=[])
         warnings.filterwarnings('always', category=DeprecationWarning)
         qubit_op, _ = core.run(self.molecule)
-
         num_orbitals = core.molecule_info['num_orbitals']
         num_particles = core.molecule_info['num_particles']
 
-        eom_ee = QEomEE(qubit_op, num_orbitals=num_orbitals, num_particles=num_particles,
+        eom_ee = QEomEE(num_orbitals=num_orbitals, num_particles=num_particles,
                         qubit_mapping=qubit_mapping, two_qubit_reduction=two_qubit_reduction)
-        result = eom_ee.run()
-        np.testing.assert_array_almost_equal(self.reference, result['energies'])
+        result = eom_ee.compute_minimum_eigenvalue(operator=qubit_op)
+        np.testing.assert_array_almost_equal(self.reference, result.energies)
 
     def test_h2_two_qubits(self):
         """Test H2 with parity mapping."""
@@ -84,15 +85,13 @@ class TestEomEE(QiskitAquaTestCase):
                            orbital_reduction=[])
         warnings.filterwarnings('always', category=DeprecationWarning)
         qubit_op, _ = core.run(self.molecule)
-
         num_orbitals = core.molecule_info['num_orbitals']
         num_particles = core.molecule_info['num_particles']
 
-        eom_ee = QEomEE(qubit_op, num_orbitals=num_orbitals, num_particles=num_particles,
+        eom_ee = QEomEE(num_orbitals=num_orbitals, num_particles=num_particles,
                         qubit_mapping=qubit_mapping, two_qubit_reduction=two_qubit_reduction)
-
-        result = eom_ee.run()
-        np.testing.assert_array_almost_equal(self.reference, result['energies'])
+        result = eom_ee.compute_minimum_eigenvalue(operator=qubit_op)
+        np.testing.assert_array_almost_equal(self.reference, result.energies)
 
     def test_h2_one_qubit(self):
         """Test H2 with tapering."""
@@ -106,17 +105,16 @@ class TestEomEE(QiskitAquaTestCase):
                            orbital_reduction=[])
         warnings.filterwarnings('always', category=DeprecationWarning)
         qubit_op, _ = core.run(self.molecule)
-
         num_orbitals = core.molecule_info['num_orbitals']
         num_particles = core.molecule_info['num_particles']
 
         z2_symmetries = Z2Symmetries.find_Z2_symmetries(qubit_op)
         tapered_op = z2_symmetries.taper(qubit_op)[5]
-        eom_ee = QEomEE(tapered_op, num_orbitals=num_orbitals, num_particles=num_particles,
+        eom_ee = QEomEE(num_orbitals=num_orbitals, num_particles=num_particles,
                         qubit_mapping=qubit_mapping, two_qubit_reduction=two_qubit_reduction,
                         z2_symmetries=tapered_op.z2_symmetries, untapered_op=qubit_op)
-        result = eom_ee.run()
-        np.testing.assert_array_almost_equal(self.reference, result['energies'])
+        result = eom_ee.compute_minimum_eigenvalue(operator=tapered_op)
+        np.testing.assert_array_almost_equal(self.reference, result.energies)
 
 
 if __name__ == '__main__':
